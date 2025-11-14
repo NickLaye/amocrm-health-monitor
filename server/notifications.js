@@ -42,8 +42,8 @@ class NotificationService {
     
     const message = {
       channel: "skypro-crm-alerts",
-      username: `🔴 amoCRM ${serviceLabel} не отвечает${errorMsg} - ${time}`,
-      text: "\n@n.rakcheev @fotin.a"
+      username: `🔴 amoCRM ${serviceLabel}`,
+      text: `🔴 amoCRM ${serviceLabel} не отвечает${errorMsg} - ${time}\n@n.rakcheev @fotin.a`
     };
 
     try {
@@ -79,8 +79,8 @@ class NotificationService {
 
     const message = {
       channel: "skypro-crm-alerts",
-      username: `✅ amoCRM ${serviceLabel} восстановлен (простой: ${downtimeStr}) - ${time}`,
-      text: "\n@n.rakcheev @fotin.a"
+      username: `✅ amoCRM ${serviceLabel}`,
+      text: `✅ amoCRM ${serviceLabel} восстановлен (простой: ${downtimeStr}) - ${time}\n@n.rakcheev @fotin.a`
     };
 
     try {
