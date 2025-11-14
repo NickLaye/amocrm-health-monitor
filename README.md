@@ -54,11 +54,11 @@ cp .env.example .env
 
 ```env
 # amoCRM Configuration
-AMOCRM_DOMAIN=skillssales.amocrm.ru
-AMOCRM_ACCESS_TOKEN=<токен из проекта "Выгрузка пользователей из amoCRM">
+AMOCRM_DOMAIN=your-domain.amocrm.ru
+AMOCRM_ACCESS_TOKEN=your_access_token_here
 
 # Mattermost Webhook
-MATTERMOST_WEBHOOK_URL=https://mm-time.skyeng.tech/hooks/tcc1zn8tgigs5bzofr8t5xoi6r
+MATTERMOST_WEBHOOK_URL=https://your-mattermost.com/hooks/your_webhook_id
 
 # Monitoring Settings
 CHECK_INTERVAL=30000          # Интервал проверок в миллисекундах (30 сек)
@@ -68,8 +68,6 @@ TIMEOUT_THRESHOLD=10000       # Таймаут для определения п�
 PORT=3001
 NODE_ENV=development
 ```
-
-**Примечание**: Конфигурация уже заполнена данными из ваших проектов. См. файл `CONFIG_SUMMARY.md` для деталей.
 
 ### 3. Запуск в режиме разработки
 
