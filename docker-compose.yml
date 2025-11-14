@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  amocrm-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: amocrm-health-monitor
+    restart: unless-stopped
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - AMOCRM_DOMAIN=${AMOCRM_DOMAIN}
+      - AMOCRM_CLIENT_ID=${AMOCRM_CLIENT_ID}
+      - AMOCRM_CLIENT_SECRET=${AMOCRM_CLIENT_SECRET}
+      - AMOCRM_REDIRECT_URI=${AMOCRM_REDIRECT_URI}
+      - AMOCRM_REFRESH_TOKEN=${AMOCRM_REFRESH_TOKEN}
+      - AMOCRM_ACCESS_TOKEN=${AMOCRM_ACCESS_TOKEN}
+      - MATTERMOST_WEBHOOK_URL=${MATTERMOST_WEBHOOK_URL}
+      - CHECK_INTERVAL=${CHECK_INTERVAL:-60000}
+      - TIMEOUT_THRESHOLD=${TIMEOUT_THRESHOLD:-10000}
+      - API_SECRET=${API_SECRET}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    
+    # Ports
+    ports:
+      - "3001:3001"
+    
+    # Volumes for persistent data
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Network
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  data:
+  logs:
+

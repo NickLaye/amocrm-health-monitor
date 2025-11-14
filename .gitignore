@@ -1,0 +1,12 @@
+node_modules/
+.env
+*.db
+*.log
+client/build/
+client/node_modules/
+.DS_Store
+dist/
+*.bak
+*.tmp
+.docs-structure.txt
+
