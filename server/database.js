@@ -276,6 +276,25 @@ class Database {
     });
   }
 
+  // Get all open incidents
+  getAllOpenIncidents() {
+    return new Promise((resolve, reject) => {
+      this.db.all(
+        `SELECT * FROM incidents 
+         WHERE end_time IS NULL
+         ORDER BY start_time DESC`,
+        [],
+        (err, rows) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(rows || []);
+          }
+        }
+      );
+    });
+  }
+
   // Clean old records (older than 30 days)
   cleanOldRecords() {
     return new Promise((resolve, reject) => {

@@ -304,6 +304,30 @@ class AmoCRMMonitor {
     }
   }
 
+  // Resolve orphaned incidents (incidents left open after restart)
+  async resolveOrphanedIncidents() {
+    try {
+      const openIncidents = await database.getAllOpenIncidents();
+      if (openIncidents.length === 0) {
+        return;
+      }
+
+      console.log(`Found ${openIncidents.length} open incident(s), checking if they should be closed...`);
+
+      for (const incident of openIncidents) {
+        const currentStatus = this.currentStatus[incident.check_type];
+        if (currentStatus && currentStatus.status === 'up') {
+          // Service is up, close the incident
+          const now = Date.now();
+          await database.updateIncidentEndTime(incident.id, now);
+          console.log(`[${incident.check_type}] Closed orphaned incident #${incident.id} (service is UP)`);
+        }
+      }
+    } catch (error) {
+      console.error('Error resolving orphaned incidents:', error);
+    }
+  }
+
   // Start monitoring
   async start() {
     console.log(`Starting amoCRM health monitoring every ${this.checkInterval}ms`);
@@ -322,7 +346,12 @@ class AmoCRMMonitor {
     }
     
     // Run initial check immediately
-    this.runAllChecks();
+    await this.runAllChecks();
+    
+    // After first check, resolve any orphaned incidents
+    setTimeout(() => {
+      this.resolveOrphanedIncidents();
+    }, 2000);
     
     // Then run periodically
     this.intervalId = setInterval(() => {
