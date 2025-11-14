@@ -9,4 +9,5 @@ dist/
 *.bak
 *.tmp
 .docs-structure.txt
+data/
 
