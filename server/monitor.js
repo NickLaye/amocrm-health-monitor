@@ -320,6 +320,10 @@ class AmoCRMMonitor {
           // Service is up, close the incident
           const now = Date.now();
           await database.updateIncidentEndTime(incident.id, now);
+          
+          // Send UP notification
+          await notifications.sendUpNotification(incident.check_type, incident.start_time);
+          
           console.log(`[${incident.check_type}] Closed orphaned incident #${incident.id} (service is UP)`);
         }
       }
