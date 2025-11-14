@@ -4,7 +4,8 @@ Real-time мониторинг доступности amoCRM с уведомле
 
 > 📝 **История изменений:** [CHANGELOG.md](./CHANGELOG.md)  
 > 🏗️ **Архитектура:** [ARCHITECTURE.md](./ARCHITECTURE.md)  
-> 📂 **Структура проекта:** [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)
+> 📂 **Структура проекта:** [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)  
+> 📊 **Code Review:** [PROJECT_REVIEW.md](./PROJECT_REVIEW.md) | [Summary](./REVIEW_SUMMARY.md)
 
 ## Возможности
 
@@ -149,6 +150,38 @@ sudo systemctl reload nginx
 sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx -d your-domain.com
 ```
+
+## Тестирование
+
+Проект включает unit и интеграционные тесты с покрытием более 30%.
+
+```bash
+# Запустить все тесты
+npm test
+
+# Запустить тесты в watch mode
+npm run test:watch
+
+# Запустить тесты с отчетом о покрытии
+npm test -- --coverage
+```
+
+**Покрытие кодом:**
+- Token Manager: 68%
+- API Endpoints: 50%
+- Monitor: 31%
+- Database: протестированы основные методы
+- **Всего:** 32.5% statements, 25% branches
+
+**Что протестировано:**
+- ✅ Token management (загрузка, сохранение, обновление)
+- ✅ API endpoints (/status, /history, /stats, /health, /incidents)
+- ✅ Monitor (updateStatus, resolveOrphanedIncidents)
+- ✅ Database (основные CRUD операции)
+- ✅ HTTP helpers и утилиты
+- ✅ Валидация входных данных
+
+Тесты автоматически запускаются в CI/CD pipeline при каждом push.
 
 ## API Endpoints
 

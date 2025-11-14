@@ -7,6 +7,7 @@ const logger = createLogger('Notifications');
 class NotificationService {
   constructor() {
     this.webhookUrl = process.env.MATTERMOST_WEBHOOK_URL;
+    this.mentions = process.env.MATTERMOST_MENTIONS || '';
     this.lastNotification = {};
     
     if (!this.webhookUrl) {
@@ -40,10 +41,11 @@ class NotificationService {
     const time = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' });
     const errorMsg = errorMessage ? ` (${errorMessage})` : '';
     
+    const mentionsText = this.mentions ? `\n${this.mentions}` : '';
     const message = {
       channel: "skypro-crm-alerts",
       username: `🔴 amoCRM ${serviceLabel}`,
-      text: `amoCRM ${serviceLabel} не отвечает${errorMsg} - ${time}\n@n.rakcheev @fotin.a`
+      text: `amoCRM ${serviceLabel} не отвечает${errorMsg} - ${time}${mentionsText}`
     };
 
     try {
@@ -77,10 +79,11 @@ class NotificationService {
       ? `${downtimeMinutes} мин ${downtimeSeconds} сек` 
       : `${downtimeSeconds} сек`;
 
+    const mentionsText = this.mentions ? `\n${this.mentions}` : '';
     const message = {
       channel: "skypro-crm-alerts",
       username: `✅ amoCRM ${serviceLabel}`,
-      text: `amoCRM ${serviceLabel} восстановлен (простой: ${downtimeStr}) - ${time}\n@n.rakcheev @fotin.a`
+      text: `amoCRM ${serviceLabel} восстановлен (простой: ${downtimeStr}) - ${time}${mentionsText}`
     };
 
     try {
@@ -112,10 +115,11 @@ class NotificationService {
       })
       .join('\n');
 
+    const mentionsText = this.mentions ? `\n${this.mentions}` : '';
     const message = {
       channel: "skypro-crm-alerts",
       username: `📊 Ежедневная сводка amoCRM - ${time}`,
-      text: `\n@n.rakcheev @fotin.a\n\n${statsText}`
+      text: `${mentionsText}\n\n${statsText}`
     };
 
     try {

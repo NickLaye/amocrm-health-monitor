@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
 const path = require('path');
 const cron = require('node-cron');
@@ -21,6 +22,12 @@ const logger = createLogger('Server');
 
 const app = express();
 const PORT = getIntEnvOrDefault('PORT', DEFAULTS.PORT);
+
+// Security middleware - Helmet.js
+app.use(helmet({
+  contentSecurityPolicy: false, // Для совместимости с React
+  crossOriginEmbedderPolicy: false
+}));
 
 // Middleware
 // Compression for all responses

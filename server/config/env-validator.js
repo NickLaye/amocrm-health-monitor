@@ -40,6 +40,11 @@ function validateEnv() {
     );
   }
   
+  // Check API_SECRET in production
+  if (process.env.NODE_ENV === 'production' && !process.env.API_SECRET) {
+    throw new Error('API_SECRET is required in production mode!');
+  }
+  
   console.log('✓ All required environment variables are set');
 }
 
