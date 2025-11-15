@@ -50,7 +50,8 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r server deploy/
-          cp -r client/build deploy/client-build
+          mkdir -p deploy/client
+          cp -r client/build deploy/client/build
           cp package*.json deploy/
           cp -r node_modules deploy/ || echo "Skipping node_modules"
           tar -czf deploy.tar.gz deploy/
@@ -110,10 +111,19 @@ jobs:
           scp deploy.tar.gz ${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/
           
           # Extract and restart services
-          ssh ${SERVER_USER}@${SERVER_HOST} << 'EOF'
-            cd ${DEPLOY_PATH}
+          ssh ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
+            cd "${DEPLOY_PATH}"
+            
+            # Backup current version
+            if [ -d "current" ]; then
+              rm -rf backup
+              mv current backup
+            fi
+            
+            # Extract new version
             tar -xzf deploy.tar.gz
-            cd deploy
+            mv deploy current
+            cd current
             
             # Install production dependencies
             npm ci --production
@@ -128,7 +138,7 @@ jobs:
             # Restart application with PM2
             pm2 restart amocrm-health-monitor || pm2 start server/index.js --name amocrm-health-monitor
             pm2 save
-          EOF
+          ENDSSH
 
       - name: Health check
         if: steps.check_secrets.outputs.secrets_configured == 'true'
@@ -145,18 +155,22 @@ jobs:
       - name: Rollback on failure
         if: failure() && steps.check_secrets.outputs.secrets_configured == 'true'
         continue-on-error: true
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            cd ${{ secrets.DEPLOY_PATH }}
+          ssh ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
+            cd "${DEPLOY_PATH}"
             # Restore previous version if exists
-            if [ -d "deploy.backup" ]; then
-              rm -rf deploy
-              mv deploy.backup deploy
-              cd deploy
+            if [ -d "backup" ]; then
+              rm -rf current
+              mv backup current
+              cd current
               pm2 restart amocrm-health-monitor
               echo "Rolled back to previous version"
             fi
-          EOF
+          ENDSSH
 
   notify:
     name: Notify Deployment Status
