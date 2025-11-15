@@ -107,8 +107,11 @@ jobs:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          # Copy artifact to server
-          scp deploy.tar.gz "${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/"
+          # Ensure deployment directory exists
+          ssh ${SERVER_USER}@${SERVER_HOST} "mkdir -p '${DEPLOY_PATH}'"
+          
+          # Copy artifact to server using rsync
+          rsync -avz deploy.tar.gz "${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/"
           
           # Extract and restart services
           ssh ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
