@@ -3,6 +3,7 @@ import './App.css';
 import Dashboard from './components/Dashboard';
 import IncidentHistory from './components/IncidentHistory';
 import ErrorBoundary from './components/ErrorBoundary';
+import ThemeToggle from './components/ThemeToggle';
 import { useMonitoring } from './hooks/useMonitoring';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div className="App">
+        <ThemeToggle />
         <header className="App-header">
           <h1>amoCRM Health Monitor</h1>
         </header>

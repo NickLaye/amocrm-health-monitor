@@ -1,0 +1,177 @@
+groups:
+  - name: amocrm_health_alerts
+    interval: 30s
+    rules:
+      # ==========================================
+      # КРИТИЧНЫЕ АЛЕРТЫ (Service Down)
+      # ==========================================
+      
+      - alert: AmoCRMServiceDown
+        expr: amocrm_service_status == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: amocrm
+        annotations:
+          summary: "amoCRM {{ $labels.check_type }} сервис не отвечает"
+          description: "Сервис {{ $labels.check_type}} не отвечает более 5 минут. Статус: DOWN"
+          
+      - alert: AmoCRMAllServicesDown
+        expr: count(amocrm_service_status == 0) >= 3
+        for: 2m
+        labels:
+          severity: critical
+          service: amocrm
+        annotations:
+          summary: "Множественный сбой amoCRM сервисов"
+          description: "{{ $value }} сервисов amoCRM не отвечают одновременно. Возможна проблема с инфраструктурой."
+          
+      # ==========================================
+      # ПРЕДУПРЕЖДЕНИЯ (Performance)
+      # ==========================================
+      
+      - alert: AmoCRMHighResponseTime
+        expr: |
+          (
+            rate(amocrm_response_time_seconds_sum[5m]) 
+            / 
+            rate(amocrm_response_time_seconds_count[5m])
+          ) > 10
+        for: 10m
+        labels:
+          severity: warning
+          service: amocrm
+        annotations:
+          summary: "Высокое время ответа amoCRM {{ $labels.check_type }}"
+          description: "Среднее время ответа для {{ $labels.check_type }} составляет {{ $value | humanizeDuration }} (порог: 10 секунд)"
+          
+      - alert: AmoCRMVeryHighResponseTime
+        expr: |
+          histogram_quantile(0.95, 
+            rate(amocrm_response_time_seconds_bucket[5m])
+          ) > 15
+        for: 5m
+        labels:
+          severity: critical
+          service: amocrm
+        annotations:
+          summary: "Критически высокое время ответа amoCRM {{ $labels.check_type }}"
+          description: "95-й процентиль времени ответа для {{ $labels.check_type }} превышает 15 секунд: {{ $value | humanizeDuration }}"
+          
+      - alert: AmoCRMLowUptime
+        expr: amocrm_uptime_percentage < 95
+        for: 15m
+        labels:
+          severity: warning
+          service: amocrm
+        annotations:
+          summary: "Низкий uptime amoCRM {{ $labels.check_type }}"
+          description: "Uptime для {{ $labels.check_type }} составляет {{ $value }}% (порог: 95%)"
+          
+      - alert: AmoCRMCriticalLowUptime
+        expr: amocrm_uptime_percentage < 90
+        for: 5m
+        labels:
+          severity: critical
+          service: amocrm
+        annotations:
+          summary: "Критически низкий uptime amoCRM {{ $labels.check_type }}"
+          description: "Uptime для {{ $labels.check_type }} упал до {{ $value }}% (критический порог: 90%)"
+          
+      # ==========================================
+      # ИНЦИДЕНТЫ
+      # ==========================================
+      
+      - alert: AmoCRMFrequentIncidents
+        expr: increase(amocrm_incidents_total[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          service: amocrm
+        annotations:
+          summary: "Частые инциденты amoCRM {{ $labels.check_type }}"
+          description: "Зафиксировано {{ $value }} инцидентов для {{ $labels.check_type }} за последний час"
+          
+      - alert: AmoCRMHighErrorRate
+        expr: |
+          (
+            rate(amocrm_health_checks_total{status="down"}[5m]) 
+            / 
+            rate(amocrm_health_checks_total[5m])
+          ) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          service: amocrm
+        annotations:
+          summary: "Высокий процент ошибок amoCRM {{ $labels.check_type }}"
+          description: "Процент неудачных проверок для {{ $labels.check_type }} составляет {{ $value | humanizePercentage }} (порог: 10%)"
+          
+      # ==========================================
+      # СИСТЕМНЫЕ АЛЕРТЫ
+      # ==========================================
+      
+      - alert: MonitoringServiceDown
+        expr: up{job="amocrm-health-monitor"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Служба мониторинга amoCRM не отвечает"
+          description: "Prometheus не может получить метрики от amoCRM Health Monitor более 2 минут"
+          
+      - alert: HighMemoryUsage
+        expr: (process_resident_memory_bytes / 1024 / 1024) > 400
+        for: 15m
+        labels:
+          severity: warning
+          service: monitoring
+        annotations:
+          summary: "Высокое потребление памяти службой мониторинга"
+          description: "amoCRM Health Monitor использует {{ $value | humanize }}MB памяти (порог: 400MB)"
+          
+      - alert: NoSSEClients
+        expr: amocrm_sse_clients_active == 0
+        for: 30m
+        labels:
+          severity: info
+          service: monitoring
+        annotations:
+          summary: "Нет активных SSE клиентов"
+          description: "К службе мониторинга не подключено ни одного клиента через SSE более 30 минут"
+          
+      # ==========================================
+      # SLA АЛЕРТЫ
+      # ==========================================
+      
+      - alert: AmoCRMSLAViolation
+        expr: |
+          (
+            count(amocrm_uptime_percentage < 99.9) 
+            OR 
+            vector(0)
+          ) > 0
+        for: 1h
+        labels:
+          severity: warning
+          service: amocrm
+          sla: "99.9"
+        annotations:
+          summary: "Нарушение SLA 99.9% для amoCRM"
+          description: "{{ $value }} сервисов нарушили SLA 99.9% за последний час"
+          
+      - alert: AmoCRMResponseTimeSLA
+        expr: |
+          histogram_quantile(0.99, 
+            rate(amocrm_response_time_seconds_bucket[1h])
+          ) > 5
+        for: 30m
+        labels:
+          severity: warning
+          service: amocrm
+          sla: "response_time"
+        annotations:
+          summary: "Нарушение SLA времени ответа для {{ $labels.check_type }}"
+          description: "99-й процентиль времени ответа {{ $value | humanizeDuration }} превышает SLA 5 секунд"
+

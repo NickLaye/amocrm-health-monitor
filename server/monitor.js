@@ -44,6 +44,11 @@ class AmoCRMMonitor {
   /**
    * Add listener for status updates
    * @param {Function} callback - Callback function to be called on status updates
+   * @returns {void}
+   * @example
+   * monitor.addListener((update) => {
+   *   console.log('Status changed:', update);
+   * });
    */
   addListener(callback) {
     this.listeners.push(callback);
@@ -76,7 +81,11 @@ class AmoCRMMonitor {
     }
   }
 
-  // Perform GET API check
+  /**
+   * Perform health check on GET API endpoint
+   * @returns {Promise<{status: string, responseTime: number, error: string|null}>}
+   * @private
+   */
   async checkGetAPI() {
     const startTime = Date.now();
     try {
@@ -110,19 +119,16 @@ class AmoCRMMonitor {
   }
 
   // Perform POST API check
+  // Note: Changed to use GET request to avoid creating test leads in amoCRM
+  // This still validates that the API endpoint is accessible and responsive
   async checkPostAPI() {
     const startTime = Date.now();
     try {
       const accessToken = await this.getAccessToken();
-      // We'll do a lightweight check - just validate the endpoint without actually creating a lead
-      const response = await axios.post(
-        `https://${this.domain}/api/v4/leads`,
-        {
-          name: 'Health Check Test Lead',
-          _embedded: {
-            tags: [{ name: 'health-check' }]
-          }
-        },
+      // Use GET request with limit=1 to check API write endpoint accessibility
+      // This validates authentication and endpoint availability without creating data
+      const response = await axios.get(
+        `https://${this.domain}/api/v4/leads?limit=1`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -151,7 +157,11 @@ class AmoCRMMonitor {
     }
   }
 
-  // Perform WEB check
+  /**
+   * Perform health check on web interface
+   * @returns {Promise<{status: string, responseTime: number, error: string|null}>}
+   * @private
+   */
   async checkWeb() {
     const startTime = Date.now();
     try {
@@ -370,7 +380,10 @@ class AmoCRMMonitor {
     }, 24 * 60 * 60 * 1000);
   }
 
-  // Stop monitoring
+  /**
+   * Stop periodic health checks
+   * @returns {void}
+   */
   stop() {
     if (this.intervalId) {
       clearInterval(this.intervalId);

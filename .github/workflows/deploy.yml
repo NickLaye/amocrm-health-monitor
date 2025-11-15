@@ -1,0 +1,161 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: cd client && npm ci
+
+      - name: Build frontend
+        run: cd client && npm run build
+        env:
+          CI: false
+
+      - name: Run tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          API_SECRET: test_secret
+
+      - name: Create deployment artifact
+        run: |
+          mkdir -p deploy
+          cp -r server deploy/
+          cp -r client/build deploy/client-build
+          cp package*.json deploy/
+          cp -r node_modules deploy/ || echo "Skipping node_modules"
+          tar -czf deploy.tar.gz deploy/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-artifact
+          path: deploy.tar.gz
+
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: deployment-artifact
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          # Copy artifact to server
+          scp deploy.tar.gz ${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/
+          
+          # Extract and restart services
+          ssh ${SERVER_USER}@${SERVER_HOST} << 'EOF'
+            cd ${DEPLOY_PATH}
+            tar -xzf deploy.tar.gz
+            cd deploy
+            
+            # Install production dependencies
+            npm ci --production
+            
+            # Copy .env file (should exist on server)
+            if [ -f "../.env" ]; then
+              cp ../.env .env
+            else
+              echo "Warning: .env file not found"
+            fi
+            
+            # Restart application with PM2
+            pm2 restart amocrm-health-monitor || pm2 start server/index.js --name amocrm-health-monitor
+            pm2 save
+          EOF
+
+      - name: Health check
+        run: |
+          sleep 10
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://${{ secrets.SERVER_HOST }}/api/health)
+          if [ $response -ne 200 ]; then
+            echo "Health check failed with status code: $response"
+            exit 1
+          fi
+          echo "Deployment successful! Health check passed."
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+            cd ${{ secrets.DEPLOY_PATH }}
+            # Restore previous version if exists
+            if [ -d "deploy.backup" ]; then
+              rm -rf deploy
+              mv deploy.backup deploy
+              cd deploy
+              pm2 restart amocrm-health-monitor
+              echo "Rolled back to previous version"
+            fi
+          EOF
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+
+    steps:
+      - name: Send notification
+        env:
+          MATTERMOST_WEBHOOK: ${{ secrets.MATTERMOST_WEBHOOK_URL }}
+          STATUS: ${{ needs.deploy.result }}
+        run: |
+          if [ "$STATUS" = "success" ]; then
+            MESSAGE="✅ Deployment to production successful!"
+            COLOR="#00ff00"
+          else
+            MESSAGE="❌ Deployment to production failed!"
+            COLOR="#ff0000"
+          fi
+          
+          curl -X POST ${MATTERMOST_WEBHOOK} \
+            -H 'Content-Type: application/json' \
+            -d "{\"text\":\"${MESSAGE}\", \"channel\":\"skypro-crm-alerts\"}"
+

@@ -1,0 +1,32 @@
+{
+  "short_name": "amoCRM Monitor",
+  "name": "amoCRM Health Monitor",
+  "description": "Real-time monitoring dashboard for amoCRM services",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#667eea",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View monitoring dashboard",
+      "url": "/",
+      "icons": [{ "src": "favicon.svg", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
+

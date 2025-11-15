@@ -261,5 +261,111 @@ monitor.addListener((checkType, data) => {
   broadcastUpdate(checkType, data);
 });
 
+// Export endpoints for reports
+const { exportHealthChecksToCSV, exportIncidentsToCSV, exportStatsToCSV, toJSON, generateReport } = require('./utils/export-helpers');
+
+router.get('/export/health-checks', validateHistory, asyncHandler(async (req, res) => {
+  const { checkType, hours = 24, format = 'csv' } = req.query;
+  
+  const data = await database.getHealthChecks(checkType || null, hours);
+  
+  if (format === 'csv') {
+    const csv = exportHealthChecksToCSV(data);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="health-checks-${Date.now()}.csv"`);
+    res.send(csv);
+  } else {
+    res.json({ success: true, data });
+  }
+}));
+
+router.get('/export/incidents', validateIncidents, asyncHandler(async (req, res) => {
+  const { limit = 100, format = 'csv' } = req.query;
+  
+  const data = await database.getIncidents(limit);
+  
+  if (format === 'csv') {
+    const csv = exportIncidentsToCSV(data);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="incidents-${Date.now()}.csv"`);
+    res.send(csv);
+  } else {
+    res.json({ success: true, data });
+  }
+}));
+
+router.get('/export/stats', validateStats, asyncHandler(async (req, res) => {
+  const { hours = 24, format = 'csv' } = req.query;
+  
+  const checkTypes = Object.values(CHECK_TYPES);
+  const statsPromises = checkTypes.map(async (checkType) => {
+    const uptime = await database.getUptime(checkType, hours);
+    const avgTime = await database.getAverageResponseTime(checkType, hours);
+    const healthChecks = await database.getHealthChecks(checkType, hours);
+    
+    return {
+      checkType,
+      uptime,
+      avgResponseTime: avgTime,
+      totalChecks: healthChecks.length,
+      successfulChecks: healthChecks.filter(c => c.status === 'up').length,
+      failedChecks: healthChecks.filter(c => c.status === 'down').length
+    };
+  });
+  
+  const statsArray = await Promise.all(statsPromises);
+  const stats = statsArray.reduce((acc, stat) => {
+    acc[stat.checkType] = stat;
+    return acc;
+  }, {});
+  
+  if (format === 'csv') {
+    const csv = exportStatsToCSV(stats);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="stats-${Date.now()}.csv"`);
+    res.send(csv);
+  } else {
+    res.json({ success: true, data: stats });
+  }
+}));
+
+router.get('/export/report', asyncHandler(async (req, res) => {
+  const { hours = 24 } = req.query;
+  
+  const healthChecks = await database.getHealthChecks(null, hours);
+  const incidents = await database.getIncidents(100);
+  
+  const checkTypes = Object.values(CHECK_TYPES);
+  const statsPromises = checkTypes.map(async (checkType) => {
+    const uptime = await database.getUptime(checkType, hours);
+    const avgTime = await database.getAverageResponseTime(checkType, hours);
+    const checks = healthChecks.filter(c => c.check_type === checkType);
+    
+    return {
+      checkType,
+      uptime,
+      avgResponseTime: avgTime,
+      totalChecks: checks.length,
+      successfulChecks: checks.filter(c => c.status === 'up').length,
+      failedChecks: checks.filter(c => c.status === 'down').length
+    };
+  });
+  
+  const statsArray = await Promise.all(statsPromises);
+  const stats = statsArray.reduce((acc, stat) => {
+    acc[stat.checkType] = stat;
+    return acc;
+  }, {});
+  
+  const report = generateReport({
+    healthChecks,
+    incidents,
+    stats,
+    period: `${hours} hours`
+  });
+  
+  res.json({ success: true, data: report });
+}));
+
 module.exports = router;
 

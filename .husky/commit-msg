@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Validate commit message format
+# Format: type(scope): subject
+# Example: feat(api): add new endpoint
+
+npx --no -- commitlint --edit ${1}
+

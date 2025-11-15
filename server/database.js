@@ -5,9 +5,23 @@ const { createLogger } = require('./utils/logger');
 const DB_PATH = path.join(__dirname, '..', 'health_checks.db');
 const logger = createLogger('Database');
 
+// Enable query logging in development mode
+const ENABLE_QUERY_LOGGING = process.env.NODE_ENV === 'development';
+
 class Database {
   constructor() {
     this.db = null;
+  }
+
+  /**
+   * Logs SQL query for debugging (development mode only)
+   * @param {string} query - SQL query
+   * @param {Array} params - Query parameters
+   */
+  logQuery(query, params = []) {
+    if (ENABLE_QUERY_LOGGING) {
+      logger.debug(`SQL Query: ${query}`, { params });
+    }
   }
 
   initialize() {
@@ -68,6 +82,7 @@ class Database {
         });
 
         // Create indices for better query performance
+        // Basic indices
         this.db.run(`
           CREATE INDEX IF NOT EXISTS idx_health_checks_timestamp 
           ON health_checks(timestamp)
@@ -81,12 +96,31 @@ class Database {
         this.db.run(`
           CREATE INDEX IF NOT EXISTS idx_incidents_type 
           ON incidents(check_type, start_time)
+        `);
+
+        // Composite indices for complex queries
+        // Optimize queries that filter by type, timestamp and status
+        this.db.run(`
+          CREATE INDEX IF NOT EXISTS idx_health_checks_type_timestamp_status 
+          ON health_checks(check_type, timestamp, status)
+        `);
+
+        // Optimize queries for open incidents
+        this.db.run(`
+          CREATE INDEX IF NOT EXISTS idx_incidents_open 
+          ON incidents(check_type, end_time, start_time)
+        `);
+
+        // Optimize response time percentile queries
+        this.db.run(`
+          CREATE INDEX IF NOT EXISTS idx_health_checks_response_time 
+          ON health_checks(check_type, timestamp, response_time)
         `, (err) => {
           if (err) {
             logger.error('Error creating indices', err);
             reject(err);
           } else {
-            logger.info('Database tables created successfully');
+            logger.info('Database tables and indices created successfully');
             resolve();
           }
         });
@@ -98,22 +132,24 @@ class Database {
   insertHealthCheck(checkType, status, responseTime, errorMessage = null) {
     return new Promise((resolve, reject) => {
       const timestamp = Date.now();
-      this.db.run(
-        `INSERT INTO health_checks (timestamp, check_type, status, response_time, error_message) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [timestamp, checkType, status, responseTime, errorMessage],
-        function(err) {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ id: this.lastID, timestamp });
-          }
+      const query = `INSERT INTO health_checks (timestamp, check_type, status, response_time, error_message) 
+         VALUES (?, ?, ?, ?, ?)`;
+      const params = [timestamp, checkType, status, responseTime, errorMessage];
+      
+      this.logQuery(query, params);
+      
+      this.db.run(query, params, function(err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ id: this.lastID, timestamp });
         }
-      );
+      });
     });
   }
 
   // Get health checks for a specific time range
+  // Note: Uses idx_health_checks_type index for optimal performance
   getHealthChecks(checkType = null, hoursBack = 24) {
     return new Promise((resolve, reject) => {
       const timeThreshold = Date.now() - (hoursBack * 60 * 60 * 1000);
@@ -129,6 +165,8 @@ class Database {
       }
 
       query += ' ORDER BY timestamp DESC';
+
+      this.logQuery(query, params);
 
       this.db.all(query, params, (err, rows) => {
         if (err) {
