@@ -148,11 +148,21 @@ jobs:
             fi
             
             # Restart application with PM2
+            echo "Current directory: $(pwd)"
             echo "PM2 status before restart:"
             pm2 list
             
             pm2 delete amocrm-health-monitor || true
-            pm2 start server/index.js --name amocrm-health-monitor --time
+            
+            # Start PM2 with ecosystem config if available, otherwise start directly
+            if [ -f "ecosystem.config.js" ]; then
+              echo "Starting with ecosystem.config.js"
+              pm2 start ecosystem.config.js
+            else
+              echo "Starting with direct PM2 command"
+              pm2 start server/index.js --name amocrm-health-monitor --time
+            fi
+            
             pm2 save
             
             echo "Waiting 5 seconds for PM2 to start..."
@@ -160,6 +170,8 @@ jobs:
             
             echo "PM2 status after restart:"
             pm2 list
+            
+            echo "PM2 logs:"
             pm2 logs amocrm-health-monitor --lines 20 --nostream || true
           ENDSSH
 
