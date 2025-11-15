@@ -47,7 +47,7 @@ class AmoCRMMonitor {
    * @returns {void}
    * @example
    * monitor.addListener((update) => {
-   *   console.log('Status changed:', update);
+   *   logger.info('Status changed:', update);
    * });
    */
   addListener(callback) {
@@ -75,7 +75,7 @@ class AmoCRMMonitor {
     try {
       return await tokenManager.getAccessToken();
     } catch (error) {
-      console.error('Error getting access token:', error);
+      logger.error('Error getting access token', error);
       // Fallback to env variable if token manager fails
       return process.env.AMOCRM_ACCESS_TOKEN;
     }
@@ -285,21 +285,21 @@ class AmoCRMMonitor {
       // Send notification
       await notifications.sendDownNotification(checkType, errorMessage);
       
-      console.log(`[${checkType}] Service went DOWN - Incident #${incidentId} created`);
+      logger.info(`Service went DOWN - Incident #${incidentId} created`, { checkType, incidentId });
     } else if (status === 'up' && previousStatus === 'down') {
       // Incident resolved
       const openIncident = await database.getOpenIncident(checkType);
       if (openIncident) {
         await database.updateIncidentEndTime(openIncident.id, Date.now());
         await notifications.sendUpNotification(checkType, openIncident.start_time);
-        console.log(`[${checkType}] Service is back UP - Incident #${openIncident.id} resolved`);
+        logger.info(`Service is back UP - Incident #${openIncident.id} resolved`, { checkType, incidentId: openIncident.id });
       }
     }
   }
 
   // Run all checks
   async runAllChecks() {
-    console.log(`Running health checks at ${new Date().toISOString()}`);
+    logger.debug('Running health checks');
     
     try {
       await Promise.all([
@@ -310,7 +310,7 @@ class AmoCRMMonitor {
         this.checkDigitalPipeline()
       ]);
     } catch (error) {
-      console.error('Error running health checks:', error);
+      logger.error('Error running health checks', error);
     }
   }
 
@@ -318,11 +318,11 @@ class AmoCRMMonitor {
   async resolveOrphanedIncidents() {
     try {
       const openIncidents = await database.getAllOpenIncidents();
-      if (openIncidents.length === 0) {
+      if (!openIncidents || openIncidents.length === 0) {
         return;
       }
 
-      console.log(`Found ${openIncidents.length} open incident(s), checking if they should be closed...`);
+      logger.info(`Found ${openIncidents.length} open incident(s), checking if they should be closed...`, { count: openIncidents.length });
 
       for (const incident of openIncidents) {
         const currentStatus = this.currentStatus[incident.check_type];
@@ -334,29 +334,29 @@ class AmoCRMMonitor {
           // Send UP notification
           await notifications.sendUpNotification(incident.check_type, incident.start_time);
           
-          console.log(`[${incident.check_type}] Closed orphaned incident #${incident.id} (service is UP)`);
+          logger.info(`Closed orphaned incident (service is UP)`, { checkType: incident.check_type, incidentId: incident.id });
         }
       }
     } catch (error) {
-      console.error('Error resolving orphaned incidents:', error);
+      logger.error('Error resolving orphaned incidents', error);
     }
   }
 
   // Start monitoring
   async start() {
-    console.log(`Starting amoCRM health monitoring every ${this.checkInterval}ms`);
+    logger.info('Starting amoCRM health monitoring', { interval: this.checkInterval });
     
     // Initialize token manager
     try {
       tokenManager.loadTokens();
       if (!tokenManager.currentTokens) {
-        console.log('Initializing tokens from environment...');
+        logger.info('Initializing tokens from environment');
         tokenManager.initializeFromEnv();
       }
       // Start auto-refresh
       tokenManager.startAutoRefresh();
     } catch (error) {
-      console.error('Error initializing token manager:', error);
+      logger.error('Error initializing token manager', error);
     }
     
     // Run initial check immediately
@@ -375,7 +375,7 @@ class AmoCRMMonitor {
     // Clean old records daily
     setInterval(() => {
       database.cleanOldRecords().catch(err => {
-        console.error('Error cleaning old records:', err);
+        logger.error('Error cleaning old records', err);
       });
     }, 24 * 60 * 60 * 1000);
   }
@@ -388,7 +388,7 @@ class AmoCRMMonitor {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      console.log('Health monitoring stopped');
+      logger.info('Health monitoring stopped');
     }
   }
 
