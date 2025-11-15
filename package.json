@@ -31,7 +31,9 @@
     "luxon": "^3.4.4",
     "node-cron": "^3.0.3",
     "prom-client": "^15.1.0",
-    "sqlite3": "^5.1.6"
+    "sqlite3": "^5.1.6",
+    "winston": "^3.18.3",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",

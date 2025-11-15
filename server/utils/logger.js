@@ -1,39 +1,109 @@
 /**
- * Logging utility
- * Provides consistent logging format across the application
+ * Logging utility with Winston
+ * Provides consistent logging format with file rotation
  */
 
-/**
- * Log levels
- */
-const LOG_LEVELS = {
-  INFO: 'INFO',
-  WARN: 'WARN',
-  ERROR: 'ERROR',
-  DEBUG: 'DEBUG'
-};
+const winston = require('winston');
+const DailyRotateFile = require('winston-daily-rotate-file');
+const path = require('path');
+const fs = require('fs');
 
-/**
- * Formats timestamp for logs
- * @returns {string} Formatted timestamp
- */
-function getTimestamp() {
-  return new Date().toISOString();
+// Create logs directory if it doesn't exist
+const logsDir = path.join(__dirname, '../../logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
 }
 
-/**
- * Formats log message
- * @param {string} level - Log level
- * @param {string} context - Context/module name
- * @param {string} message - Log message
- * @returns {string} Formatted log message
- */
-function formatMessage(level, context, message) {
-  return `[${getTimestamp()}] [${level}] [${context}] ${message}`;
+// Custom format for logs
+const logFormat = winston.format.combine(
+  winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  winston.format.errors({ stack: true }),
+  winston.format.splat(),
+  winston.format.printf(({ timestamp, level, message, context, ...meta }) => {
+    let log = `[${timestamp}] [${level.toUpperCase()}]`;
+    if (context) {
+      log += ` [${context}]`;
+    }
+    log += ` ${message}`;
+    
+    // Add metadata if present
+    const metaKeys = Object.keys(meta);
+    if (metaKeys.length > 0) {
+      log += ` ${JSON.stringify(meta)}`;
+    }
+    
+    return log;
+  })
+);
+
+// Transport for error logs
+const errorTransport = new DailyRotateFile({
+  filename: path.join(logsDir, 'error-%DATE%.log'),
+  datePattern: 'YYYY-MM-DD',
+  level: 'error',
+  maxSize: '20m',
+  maxFiles: '14d',
+  format: logFormat
+});
+
+// Transport for combined logs
+const combinedTransport = new DailyRotateFile({
+  filename: path.join(logsDir, 'combined-%DATE%.log'),
+  datePattern: 'YYYY-MM-DD',
+  maxSize: '20m',
+  maxFiles: '30d',
+  format: logFormat
+});
+
+// Transport for console output
+const consoleTransport = new winston.transports.Console({
+  format: winston.format.combine(
+    winston.format.colorize(),
+    logFormat
+  )
+});
+
+// Create base logger
+const baseLogger = winston.createLogger({
+  level: process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
+  format: logFormat,
+  transports: [
+    errorTransport,
+    combinedTransport
+  ],
+  // Don't exit on handled exceptions
+  exitOnError: false
+});
+
+// Add console transport in development or if explicitly enabled
+if (process.env.NODE_ENV !== 'production' || process.env.CONSOLE_LOGS === 'true') {
+  baseLogger.add(consoleTransport);
 }
 
+// Handle uncaught exceptions
+baseLogger.exceptions.handle(
+  new DailyRotateFile({
+    filename: path.join(logsDir, 'exceptions-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    maxSize: '20m',
+    maxFiles: '14d',
+    format: logFormat
+  })
+);
+
+// Handle unhandled promise rejections
+baseLogger.rejections.handle(
+  new DailyRotateFile({
+    filename: path.join(logsDir, 'rejections-%DATE%.log'),
+    datePattern: 'YYYY-MM-DD',
+    maxSize: '20m',
+    maxFiles: '14d',
+    format: logFormat
+  })
+);
+
 /**
- * Logger class for consistent logging
+ * Logger class for consistent logging with context
  */
 class Logger {
   constructor(context) {
@@ -43,50 +113,64 @@ class Logger {
   /**
    * Log info message
    * @param {string} message - Message to log
-   * @param {*} data - Optional data to log
+   * @param {*} meta - Optional metadata
    */
-  info(message, data = null) {
-    console.log(formatMessage(LOG_LEVELS.INFO, this.context, message));
-    if (data) console.log(data);
+  info(message, meta = {}) {
+    baseLogger.info(message, { context: this.context, ...meta });
   }
 
   /**
    * Log warning message
    * @param {string} message - Message to log
-   * @param {*} data - Optional data to log
+   * @param {*} meta - Optional metadata
    */
-  warn(message, data = null) {
-    console.warn(formatMessage(LOG_LEVELS.WARN, this.context, message));
-    if (data) console.warn(data);
+  warn(message, meta = {}) {
+    baseLogger.warn(message, { context: this.context, ...meta });
   }
 
   /**
    * Log error message
    * @param {string} message - Message to log
-   * @param {Error|*} error - Error object or data
+   * @param {Error|*} error - Error object or metadata
    */
   error(message, error = null) {
-    console.error(formatMessage(LOG_LEVELS.ERROR, this.context, message));
-    if (error) {
-      if (error instanceof Error) {
-        console.error(`  Error: ${error.message}`);
-        if (error.stack) console.error(error.stack);
-      } else {
-        console.error(error);
-      }
+    if (error instanceof Error) {
+      baseLogger.error(message, {
+        context: this.context,
+        error: error.message,
+        stack: error.stack
+      });
+    } else if (error) {
+      baseLogger.error(message, { context: this.context, ...error });
+    } else {
+      baseLogger.error(message, { context: this.context });
     }
   }
 
   /**
-   * Log debug message (only in development)
+   * Log debug message
    * @param {string} message - Message to log
-   * @param {*} data - Optional data to log
+   * @param {*} meta - Optional metadata
    */
-  debug(message, data = null) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(formatMessage(LOG_LEVELS.DEBUG, this.context, message));
-      if (data) console.log(data);
-    }
+  debug(message, meta = {}) {
+    baseLogger.debug(message, { context: this.context, ...meta });
+  }
+
+  /**
+   * Log HTTP request
+   * @param {string} method - HTTP method
+   * @param {string} url - Request URL
+   * @param {number} statusCode - Response status code
+   * @param {number} responseTime - Response time in ms
+   */
+  http(method, url, statusCode, responseTime) {
+    baseLogger.info(`${method} ${url} ${statusCode} ${responseTime}ms`, {
+      context: this.context,
+      method,
+      url,
+      statusCode,
+      responseTime
+    });
   }
 }
 
@@ -99,8 +183,17 @@ function createLogger(context) {
   return new Logger(context);
 }
 
+/**
+ * Get the base Winston logger instance
+ * Useful for advanced logging scenarios
+ * @returns {winston.Logger} Winston logger instance
+ */
+function getWinstonLogger() {
+  return baseLogger;
+}
+
 module.exports = {
   createLogger,
-  Logger
+  Logger,
+  getWinstonLogger
 };
-
