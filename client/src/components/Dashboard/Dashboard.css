@@ -234,9 +234,10 @@
 .service-card {
   background: white !important;
   border-radius: 12px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   min-height: 160px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
   border-left: 4px solid #cbd5e0;
   transition: all 0.2s ease;
   display: flex;
@@ -262,19 +263,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  min-height: 28px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+  min-height: 32px;
 }
 
 .service-header h3 {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 700;
-  color: #1a202c;
+  color: #1e293b;
   margin: 0;
   line-height: 1.3;
   display: flex;
   align-items: center;
-  min-height: 22px;
+  min-height: 24px;
 }
 
 .badge {
@@ -305,27 +308,26 @@
 .service-details {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: auto;
+  gap: 10px;
+  flex: 1;
 }
 
 .detail-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid #f7fafc;
+  padding: 8px 0;
   gap: 12px;
 }
 
-.detail-item:last-child {
-  border-bottom: none;
+.detail-item:not(:last-child) {
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .detail-label {
   font-size: 0.85rem;
-  font-weight: 600;
-  color: #718096;
+  font-weight: 500;
+  color: #64748b;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -333,7 +335,7 @@
 .detail-value {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #1a202c;
+  color: #1e293b;
   text-align: right;
   flex-grow: 1;
 }
@@ -460,77 +462,129 @@
   }
 }
 
-/* Detailed Metrics Sections */
+/* Detailed Metrics Sections - Improved Design */
 .detailed-metrics {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 2px solid #e2e8f0;
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
 }
 
 .metrics-section {
-  background: #f8fafc;
-  border-radius: 10px;
-  padding: 12px 14px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border-radius: 8px;
+  padding: 10px 12px;
   border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.metrics-section:hover {
+  border-color: #cbd5e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .metrics-title {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 700;
   color: #4a5568;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .detailed-metrics .detail-item {
-  margin-bottom: 6px;
-  padding: 5px 0;
-  border-bottom: 1px solid #e2e8f0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 4px 0;
   gap: 8px;
+  min-height: 24px;
 }
 
-.detailed-metrics .detail-item:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
+.detailed-metrics .detail-item:not(:last-child) {
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .detailed-metrics .detail-label {
-  font-size: 0.8rem;
-  color: #718096;
-  font-weight: 600;
+  font-size: 0.75rem;
+  color: #64748b;
+  font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .detailed-metrics .detail-value {
-  font-size: 0.85rem;
-  color: #1a202c;
+  font-size: 0.8rem;
+  color: #1e293b;
   font-weight: 700;
   text-align: right;
+  white-space: nowrap;
+  min-width: fit-content;
 }
 
-/* Make the last section (Apdex) span full width if it's alone */
-.metrics-section:last-child:nth-child(odd) {
+/* Special styling for response time values in detailed metrics */
+.detailed-metrics .detail-item .time-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.detailed-metrics .detail-item .time-unit {
+  font-size: 0.7rem;
+  color: #64748b;
+  margin-left: 2px;
+}
+
+/* Make Apdex section span full width */
+.metrics-section:last-child {
   grid-column: 1 / -1;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-color: #bae6fd;
+}
+
+.metrics-section:last-child .metrics-title {
+  color: #0369a1;
+  border-bottom-color: #bae6fd;
 }
 
 /* Responsive adjustments for detailed metrics */
 @media (max-width: 1400px) {
   .detailed-metrics {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .metrics-section:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .detailed-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .metrics-section {
+    padding: 8px 10px;
+  }
+  
+  .detailed-metrics .detail-item {
+    padding: 3px 0;
   }
 }
 
 @media (max-width: 768px) {
   .detailed-metrics {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 8px;
   }
   
   .metrics-section {
@@ -538,14 +592,14 @@
   }
   
   .metrics-title {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   
   .detailed-metrics .detail-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   
   .detailed-metrics .detail-value {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 }
