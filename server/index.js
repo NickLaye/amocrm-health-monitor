@@ -71,14 +71,16 @@ const apiLimiter = rateLimit({
     error: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => {
-    // Skip rate limiting for health check
-    return req.path === '/api/health';
-  }
+  legacyHeaders: false
 });
 
-app.use('/api/', apiLimiter);
+// Apply rate limiter only to API routes (exclude health check)
+app.use('/api/', (req, res, next) => {
+  if (req.path === '/health') {
+    return next();
+  }
+  apiLimiter(req, res, next);
+});
 
 app.use(express.json());
 
