@@ -3,6 +3,7 @@ import './Dashboard.css';
 import StatusCard from '../StatusCard';
 import LastUpdateCard from '../LastUpdateCard';
 import PeriodSelector from '../PeriodSelector';
+import TabsNav from '../TabsNav';
 import AverageResponseTime from '../AverageResponseTime';
 import ServicesGrid from '../ServicesGrid';
 import LoadingSpinner from '../LoadingSpinner';
@@ -23,6 +24,7 @@ const IncidentHistory = lazy(() => import('../IncidentHistory'));
 function Dashboard({ status, stats, lastUpdate }) {
   const [historyData, setHistoryData] = useState({});
   const [selectedPeriod, setSelectedPeriod] = useState(24);
+  const [activeView, setActiveView] = useState('compact');
 
   // Fetch history data when period changes
   const fetchHistoryData = useCallback(async () => {
@@ -65,6 +67,17 @@ function Dashboard({ status, stats, lastUpdate }) {
     setSelectedPeriod(newPeriod);
   }, []);
 
+  // Memoized view change handler
+  const handleViewChange = useCallback((newView) => {
+    setActiveView(newView);
+  }, []);
+
+  // Tabs configuration
+  const viewTabs = useMemo(() => [
+    { id: 'compact', label: 'Компактный вид', icon: '📊' },
+    { id: 'detailed', label: 'Развернутый вид', icon: '📈' }
+  ], []);
+
   // Check if we have history data
   const hasHistoryData = useMemo(() => {
     return Object.keys(historyData).length > 0;
@@ -85,8 +98,15 @@ function Dashboard({ status, stats, lastUpdate }) {
       {/* Average Response Times - GET and POST */}
       <AverageResponseTime stats={stats} />
 
+      {/* View Switcher */}
+      <TabsNav 
+        activeTab={activeView}
+        onTabChange={handleViewChange}
+        tabs={viewTabs}
+      />
+
       {/* All Services in one row */}
-      <ServicesGrid status={status} stats={stats} />
+      <ServicesGrid status={status} stats={stats} view={activeView} />
 
       {/* Response Time Chart - Lazy Loaded */}
       {hasHistoryData && (
