@@ -604,16 +604,20 @@ class Database {
         });
 
         // 5. Calculate MTTR (Mean Time To Repair) - in minutes
-        const mttr = incidentStats.avgRecoveryTime 
+        const mttr = incidentStats && incidentStats.avgRecoveryTime 
           ? Math.round(incidentStats.avgRecoveryTime / (60 * 1000))
           : 0;
 
         // 6. Calculate MTBF (Mean Time Between Failures) - in hours
-        const totalUptime = basicStats.totalChecks > 0 
-          ? (basicStats.successCount / basicStats.totalChecks) * hoursBack 
+        // Must be calculated before we redefine totalChecks/successCount
+        const totalChecksForMTBF = basicStats.totalChecks || 0;
+        const successCountForMTBF = basicStats.successCount || 0;
+        const totalUptime = totalChecksForMTBF > 0 
+          ? (successCountForMTBF / totalChecksForMTBF) * hoursBack 
           : hoursBack;
-        const mtbf = incidentStats.incidentCount > 0 
-          ? parseFloat((totalUptime / incidentStats.incidentCount).toFixed(2))
+        const incidentCount = (incidentStats && incidentStats.incidentCount) || 0;
+        const mtbf = incidentCount > 0 
+          ? parseFloat((totalUptime / incidentCount).toFixed(2))
           : hoursBack;
 
         // 7. Calculate Apdex Score (T=500ms, 4T=2000ms)
@@ -631,27 +635,31 @@ class Database {
           );
         });
 
-        const apdexScore = apdexData.total > 0
-          ? parseFloat(((apdexData.satisfied + (apdexData.tolerating * 0.5)) / apdexData.total).toFixed(3))
+        const apdexScore = apdexData && apdexData.total > 0
+          ? parseFloat((((apdexData.satisfied || 0) + ((apdexData.tolerating || 0) * 0.5)) / apdexData.total).toFixed(3))
           : 1.0;
 
         // 8. Calculate uptime and availability percentages
-        const uptime = basicStats.totalChecks > 0 
-          ? parseFloat(((basicStats.successCount / basicStats.totalChecks) * 100).toFixed(2))
+        const totalChecks = basicStats.totalChecks || 0;
+        const successCount = basicStats.successCount || 0;
+        const failureCount = basicStats.failureCount || 0;
+        
+        const uptime = totalChecks > 0 
+          ? parseFloat(((successCount / totalChecks) * 100).toFixed(2))
           : 100;
 
         const availability = uptime; // Same as uptime for our purposes
 
         // 9. Success rate
-        const successRate = basicStats.totalChecks > 0 
-          ? parseFloat(((basicStats.successCount / basicStats.totalChecks) * 100).toFixed(2))
+        const successRate = totalChecks > 0 
+          ? parseFloat(((successCount / totalChecks) * 100).toFixed(2))
           : 100;
 
         // Return all 15 metrics
         resolve({
           // Basic metrics (1-2)
           uptime,
-          totalChecks: basicStats.totalChecks,
+          totalChecks,
           
           // Reliability metrics (3-4)
           mttr, // in minutes
@@ -662,7 +670,7 @@ class Database {
           
           // Success/failure metrics (6-7)
           successRate,
-          failureCount: basicStats.failureCount,
+          failureCount,
           
           // Response time metrics (8-12)
           avgResponseTime: responseStats.avgResponseTime 
@@ -674,8 +682,8 @@ class Database {
           p99ResponseTime: Math.round(p99),
           
           // Incident metrics (13-14)
-          lastIncident: incidentStats.lastIncidentTime || null,
-          incidentCount: incidentStats.incidentCount,
+          lastIncident: (incidentStats && incidentStats.lastIncidentTime) || null,
+          incidentCount,
           
           // Availability (15)
           availability
