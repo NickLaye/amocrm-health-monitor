@@ -24,6 +24,9 @@ const logger = createLogger('Server');
 const app = express();
 const PORT = getIntEnvOrDefault('PORT', DEFAULTS.PORT);
 
+// Trust proxy (required for rate limiting behind Nginx)
+app.set('trust proxy', 1);
+
 // Security middleware - Helmet.js
 app.use(helmet({
   contentSecurityPolicy: false, // Для совместимости с React
