@@ -130,3 +130,71 @@ export function getStatusClass(status) {
   return `status-${status || 'unknown'}`;
 }
 
+/**
+ * Formats MTTR (Mean Time To Repair) in minutes
+ * @param {number} minutes - MTTR in minutes
+ * @returns {string} Formatted MTTR string
+ */
+export function formatMTTR(minutes) {
+  if (!minutes || minutes === 0) {
+    return '0 мин';
+  }
+  if (minutes < 60) {
+    return `${Math.round(minutes)} мин`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = Math.round(minutes % 60);
+  return remainingMinutes > 0 ? `${hours} ч ${remainingMinutes} мин` : `${hours} ч`;
+}
+
+/**
+ * Formats MTBF (Mean Time Between Failures) in hours
+ * @param {number} hours - MTBF in hours
+ * @returns {string} Formatted MTBF string
+ */
+export function formatMTBF(hours) {
+  if (!hours || hours === 0) {
+    return '0 ч';
+  }
+  if (hours < 24) {
+    return `${hours.toFixed(1)} ч`;
+  }
+  const days = Math.floor(hours / 24);
+  const remainingHours = Math.round(hours % 24);
+  return remainingHours > 0 ? `${days} дн ${remainingHours} ч` : `${days} дн`;
+}
+
+/**
+ * Formats Apdex Score (0-1 scale)
+ * @param {number} score - Apdex score (0.0 - 1.0)
+ * @returns {string} Formatted score with emoji and label
+ */
+export function formatApdex(score) {
+  if (score === null || score === undefined || isNaN(score)) {
+    return 'N/A';
+  }
+  
+  const formattedScore = score.toFixed(3);
+  let emoji = '';
+  let label = '';
+  
+  if (score >= 0.94) {
+    emoji = '🟢';
+    label = 'Отлично';
+  } else if (score >= 0.85) {
+    emoji = '🟡';
+    label = 'Хорошо';
+  } else if (score >= 0.70) {
+    emoji = '🟠';
+    label = 'Нормально';
+  } else if (score >= 0.50) {
+    emoji = '🔴';
+    label = 'Плохо';
+  } else {
+    emoji = '⚫';
+    label = 'Критично';
+  }
+  
+  return `${formattedScore} ${emoji} ${label}`;
+}
+

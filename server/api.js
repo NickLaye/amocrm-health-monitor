@@ -65,7 +65,7 @@ router.get('/incidents', validateIncidents, asyncHandler(async (req, res) => {
   });
 }));
 
-// Get statistics
+// Get statistics (15 performance metrics)
 router.get('/stats', validateStats, asyncHandler(async (req, res) => {
   const { hours = 24 } = req.query;
   
@@ -73,51 +73,45 @@ router.get('/stats', validateStats, asyncHandler(async (req, res) => {
   const stats = {};
   
   for (const checkType of checkTypes) {
-    const [avgResponseTime, uptime, percentile95, responseStats, mttr, mtbf] = await Promise.all([
-      database.getAverageResponseTime(checkType, hours),
-      database.getUptimePercentage(checkType, hours),
-      database.getPercentileResponseTime(checkType, hours, 95),
-      database.getResponseTimeStats(checkType, hours),
-      database.getMTTR(checkType, hours),
-      database.getMTBF(checkType, hours)
-    ]);
-    
-    // Calculate Error Rate and Success Rate
-    const errorRate = uptime.total > 0 ? 
-      ((uptime.down / uptime.total) * 100).toFixed(2) : 0;
-    const successRate = uptime.percentage; // Already calculated
-    
-    // Calculate Apdex Score (T = 500ms, 4T = 2000ms)
-    const satisfied = await database.getChecksUnderThreshold(checkType, hours, 500);
-    const tolerating = await database.getChecksInRange(checkType, hours, 500, 2000);
-    const apdex = uptime.total > 0 ?
-      ((satisfied + tolerating / 2) / uptime.total).toFixed(3) : null;
+    // Use new getDetailedStatistics method that returns all 15 metrics
+    const detailedStats = await database.getDetailedStatistics(checkType, hours);
     
     stats[checkType] = {
-      // Existing metrics
-      averageResponseTime: avgResponseTime.average,
-      checkCount: avgResponseTime.count,
-      uptime: uptime.percentage,
-      totalChecks: uptime.total,
-      upChecks: uptime.up,
-      downChecks: uptime.down,
+      // Basic metrics (1-2)
+      uptime: detailedStats.uptime,
+      totalChecks: detailedStats.totalChecks,
       
-      // New critical metrics
-      errorRate: parseFloat(errorRate),
-      successRate: successRate,
-      percentile95: percentile95.value,
+      // Reliability metrics (3-4)
+      mttr: detailedStats.mttr, // Mean Time To Repair (minutes)
+      mtbf: detailedStats.mtbf, // Mean Time Between Failures (hours)
       
-      // Response time stats
-      minResponseTime: responseStats.min,
-      maxResponseTime: responseStats.max,
-      medianResponseTime: responseStats.median,
+      // User satisfaction (5)
+      apdexScore: detailedStats.apdexScore,
       
-      // Reliability metrics
-      mttr: mttr.mttr,
-      mtbf: mtbf.mtbf,
+      // Success/failure metrics (6-7)
+      successRate: detailedStats.successRate,
+      failureCount: detailedStats.failureCount,
       
-      // User satisfaction
-      apdex: parseFloat(apdex)
+      // Response time metrics (8-12)
+      avgResponseTime: detailedStats.avgResponseTime,
+      minResponseTime: detailedStats.minResponseTime,
+      maxResponseTime: detailedStats.maxResponseTime,
+      p95ResponseTime: detailedStats.p95ResponseTime,
+      p99ResponseTime: detailedStats.p99ResponseTime,
+      
+      // Incident metrics (13-14)
+      lastIncident: detailedStats.lastIncident,
+      incidentCount: detailedStats.incidentCount,
+      
+      // Availability (15)
+      availability: detailedStats.availability,
+      
+      // Legacy fields for backwards compatibility
+      errorRate: detailedStats.failureCount > 0 
+        ? parseFloat(((detailedStats.failureCount / detailedStats.totalChecks) * 100).toFixed(2)) 
+        : 0,
+      upChecks: detailedStats.totalChecks - detailedStats.failureCount,
+      downChecks: detailedStats.failureCount
     };
   }
   

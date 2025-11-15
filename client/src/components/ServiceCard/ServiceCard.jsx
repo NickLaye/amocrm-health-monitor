@@ -1,6 +1,14 @@
 import React, { useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { formatResponseTime, formatUptime, formatNumber } from '../../utils/formatters';
+import { 
+  formatResponseTime, 
+  formatUptime, 
+  formatNumber, 
+  formatMTTR, 
+  formatMTBF, 
+  formatApdex,
+  formatTimestamp
+} from '../../utils/formatters';
 import './ServiceCard.css';
 
 /**
@@ -100,16 +108,86 @@ const ServiceCard = React.memo(({ checkType, label, data, stats, view = 'compact
         )}
         
         {view === 'detailed' && stats && (
-          <>
-            <DetailItem 
-              label="Uptime:" 
-              value={formatUptime(stats.uptime)} 
-            />
-            <DetailItem 
-              label="Проверок:" 
-              value={formatNumber(stats.totalChecks)} 
-            />
-          </>
+          <div className="detailed-metrics">
+            <div className="metrics-section">
+              <h4 className="metrics-title">📊 Основные метрики</h4>
+              <DetailItem 
+                label="Uptime:" 
+                value={formatUptime(stats.uptime)} 
+              />
+              <DetailItem 
+                label="Доступность:" 
+                value={formatUptime(stats.availability)} 
+              />
+              <DetailItem 
+                label="Проверок:" 
+                value={formatNumber(stats.totalChecks)} 
+              />
+              <DetailItem 
+                label="Success Rate:" 
+                value={formatUptime(stats.successRate)} 
+              />
+            </div>
+
+            <div className="metrics-section">
+              <h4 className="metrics-title">⚡ Время отклика</h4>
+              <DetailItem 
+                label="Среднее:" 
+                value={formatResponseTime(stats.avgResponseTime)} 
+                isResponseTime 
+              />
+              <DetailItem 
+                label="Мин:" 
+                value={formatResponseTime(stats.minResponseTime)} 
+                isResponseTime 
+              />
+              <DetailItem 
+                label="Макс:" 
+                value={formatResponseTime(stats.maxResponseTime)} 
+                isResponseTime 
+              />
+              <DetailItem 
+                label="P95:" 
+                value={formatResponseTime(stats.p95ResponseTime)} 
+                isResponseTime 
+              />
+              <DetailItem 
+                label="P99:" 
+                value={formatResponseTime(stats.p99ResponseTime)} 
+                isResponseTime 
+              />
+            </div>
+
+            <div className="metrics-section">
+              <h4 className="metrics-title">🔧 Надёжность</h4>
+              <DetailItem 
+                label="MTTR:" 
+                value={formatMTTR(stats.mttr)} 
+              />
+              <DetailItem 
+                label="MTBF:" 
+                value={formatMTBF(stats.mtbf)} 
+              />
+              <DetailItem 
+                label="Инциденты:" 
+                value={formatNumber(stats.incidentCount)} 
+              />
+              {stats.lastIncident && (
+                <DetailItem 
+                  label="Последний инцидент:" 
+                  value={formatTimestamp(stats.lastIncident)} 
+                />
+              )}
+            </div>
+
+            <div className="metrics-section">
+              <h4 className="metrics-title">😊 Удовлетворённость</h4>
+              <DetailItem 
+                label="Apdex Score:" 
+                value={formatApdex(stats.apdexScore)} 
+              />
+            </div>
+          </div>
         )}
         
         {data.errorMessage && (
@@ -132,8 +210,25 @@ ServiceCard.propTypes = {
     errorMessage: PropTypes.string
   }).isRequired,
   stats: PropTypes.shape({
+    // Basic metrics
     uptime: PropTypes.number,
-    totalChecks: PropTypes.number
+    totalChecks: PropTypes.number,
+    availability: PropTypes.number,
+    successRate: PropTypes.number,
+    failureCount: PropTypes.number,
+    // Response time metrics
+    avgResponseTime: PropTypes.number,
+    minResponseTime: PropTypes.number,
+    maxResponseTime: PropTypes.number,
+    p95ResponseTime: PropTypes.number,
+    p99ResponseTime: PropTypes.number,
+    // Reliability metrics
+    mttr: PropTypes.number,
+    mtbf: PropTypes.number,
+    incidentCount: PropTypes.number,
+    lastIncident: PropTypes.number,
+    // User satisfaction
+    apdexScore: PropTypes.number
   }),
   view: PropTypes.oneOf(['compact', 'detailed'])
 };

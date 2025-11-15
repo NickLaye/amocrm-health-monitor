@@ -531,6 +531,162 @@ class Database {
     });
   }
 
+  /**
+   * Get detailed performance statistics for a check type
+   * @param {string} checkType - Check type (GET, POST, WEB, HOOK, DP)
+   * @param {number} hoursBack - Hours to look back (default: 24)
+   * @returns {Promise<object>} Detailed statistics including MTTR, MTBF, Apdex, etc.
+   */
+  getDetailedStatistics(checkType, hoursBack = 24) {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const timeThreshold = Date.now() - (hoursBack * 60 * 60 * 1000);
+        
+        // 1. Basic metrics: uptime, total checks, success rate
+        const basicStats = await new Promise((res, rej) => {
+          this.db.get(
+            `SELECT 
+              COUNT(*) as totalChecks,
+              SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as successCount,
+              SUM(CASE WHEN status = 'down' THEN 1 ELSE 0 END) as failureCount
+            FROM health_checks 
+            WHERE check_type = ? AND timestamp > ?`,
+            [checkType, timeThreshold],
+            (err, row) => err ? rej(err) : res(row)
+          );
+        });
+
+        // 2. Response time statistics
+        const responseStats = await new Promise((res, rej) => {
+          this.db.get(
+            `SELECT 
+              AVG(response_time) as avgResponseTime,
+              MIN(response_time) as minResponseTime,
+              MAX(response_time) as maxResponseTime
+            FROM health_checks 
+            WHERE check_type = ? AND timestamp > ? AND response_time IS NOT NULL`,
+            [checkType, timeThreshold],
+            (err, row) => err ? rej(err) : res(row)
+          );
+        });
+
+        // 3. Percentile response times (P95, P99)
+        const allResponses = await new Promise((res, rej) => {
+          this.db.all(
+            `SELECT response_time 
+            FROM health_checks 
+            WHERE check_type = ? AND timestamp > ? AND response_time IS NOT NULL
+            ORDER BY response_time ASC`,
+            [checkType, timeThreshold],
+            (err, rows) => err ? rej(err) : res(rows)
+          );
+        });
+
+        const p95 = allResponses.length > 0 
+          ? allResponses[Math.floor(allResponses.length * 0.95)]?.response_time || 0
+          : 0;
+        const p99 = allResponses.length > 0 
+          ? allResponses[Math.floor(allResponses.length * 0.99)]?.response_time || 0
+          : 0;
+
+        // 4. Incident statistics
+        const incidentStats = await new Promise((res, rej) => {
+          this.db.get(
+            `SELECT 
+              COUNT(*) as incidentCount,
+              MAX(start_time) as lastIncidentTime,
+              AVG(CASE WHEN end_time IS NOT NULL THEN (end_time - start_time) ELSE NULL END) as avgRecoveryTime
+            FROM incidents 
+            WHERE check_type = ? AND start_time > ?`,
+            [checkType, timeThreshold],
+            (err, row) => err ? rej(err) : res(row)
+          );
+        });
+
+        // 5. Calculate MTTR (Mean Time To Repair) - in minutes
+        const mttr = incidentStats.avgRecoveryTime 
+          ? Math.round(incidentStats.avgRecoveryTime / (60 * 1000))
+          : 0;
+
+        // 6. Calculate MTBF (Mean Time Between Failures) - in hours
+        const totalUptime = basicStats.totalChecks > 0 
+          ? (basicStats.successCount / basicStats.totalChecks) * hoursBack 
+          : hoursBack;
+        const mtbf = incidentStats.incidentCount > 0 
+          ? parseFloat((totalUptime / incidentStats.incidentCount).toFixed(2))
+          : hoursBack;
+
+        // 7. Calculate Apdex Score (T=500ms, 4T=2000ms)
+        const apdexData = await new Promise((res, rej) => {
+          this.db.get(
+            `SELECT 
+              SUM(CASE WHEN response_time <= 500 THEN 1 ELSE 0 END) as satisfied,
+              SUM(CASE WHEN response_time > 500 AND response_time <= 2000 THEN 1 ELSE 0 END) as tolerating,
+              SUM(CASE WHEN response_time > 2000 THEN 1 ELSE 0 END) as frustrated,
+              COUNT(*) as total
+            FROM health_checks 
+            WHERE check_type = ? AND timestamp > ? AND response_time IS NOT NULL AND status = 'up'`,
+            [checkType, timeThreshold],
+            (err, row) => err ? rej(err) : res(row)
+          );
+        });
+
+        const apdexScore = apdexData.total > 0
+          ? parseFloat(((apdexData.satisfied + (apdexData.tolerating * 0.5)) / apdexData.total).toFixed(3))
+          : 1.0;
+
+        // 8. Calculate uptime and availability percentages
+        const uptime = basicStats.totalChecks > 0 
+          ? parseFloat(((basicStats.successCount / basicStats.totalChecks) * 100).toFixed(2))
+          : 100;
+
+        const availability = uptime; // Same as uptime for our purposes
+
+        // 9. Success rate
+        const successRate = basicStats.totalChecks > 0 
+          ? parseFloat(((basicStats.successCount / basicStats.totalChecks) * 100).toFixed(2))
+          : 100;
+
+        // Return all 15 metrics
+        resolve({
+          // Basic metrics (1-2)
+          uptime,
+          totalChecks: basicStats.totalChecks,
+          
+          // Reliability metrics (3-4)
+          mttr, // in minutes
+          mtbf, // in hours
+          
+          // User satisfaction (5)
+          apdexScore,
+          
+          // Success/failure metrics (6-7)
+          successRate,
+          failureCount: basicStats.failureCount,
+          
+          // Response time metrics (8-12)
+          avgResponseTime: responseStats.avgResponseTime 
+            ? Math.round(responseStats.avgResponseTime) 
+            : 0,
+          minResponseTime: responseStats.minResponseTime || 0,
+          maxResponseTime: responseStats.maxResponseTime || 0,
+          p95ResponseTime: Math.round(p95),
+          p99ResponseTime: Math.round(p99),
+          
+          // Incident metrics (13-14)
+          lastIncident: incidentStats.lastIncidentTime || null,
+          incidentCount: incidentStats.incidentCount,
+          
+          // Availability (15)
+          availability
+        });
+      } catch (error) {
+        logger.error('Error calculating detailed statistics', error);
+        reject(error);
+      }
+    });
+  }
+
   close() {
     return new Promise((resolve, reject) => {
       if (this.db) {
