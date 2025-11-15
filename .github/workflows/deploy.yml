@@ -115,7 +115,7 @@ jobs:
           rsync -avz deploy.tar.gz "${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/"
           
           # Extract and restart services
-          ssh ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
+          ssh ${SERVER_USER}@${SERVER_HOST} << ENDSSH
             cd "${DEPLOY_PATH}"
             
             # Backup current version
