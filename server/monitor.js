@@ -90,8 +90,9 @@ class AmoCRMMonitor {
     const startTime = Date.now();
     try {
       const accessToken = await this.getAccessToken();
+      // Changed from /api/v4/account to /api/v4/contacts?limit=1 to avoid 401 permission issues
       const response = await axios.get(
-        `https://${this.domain}/api/v4/account`,
+        `https://${this.domain}/api/v4/contacts?limit=1`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`
