@@ -160,7 +160,7 @@ jobs:
           sleep 15
           
           echo "Checking health endpoint..."
-          if response=$(curl -k -s -o /dev/null -w "%{http_code}" https://${{ secrets.SERVER_HOST }}/api/health 2>&1); then
+          if response=$(curl -k -s -o /dev/null -w "%{http_code}" https://${{ secrets.SERVER_HOST }}/health 2>&1); then
             echo "Response code: $response"
             if [ "$response" = "200" ]; then
               echo "✅ Deployment successful! Health check passed."
