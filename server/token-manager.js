@@ -1,6 +1,9 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { createLogger } = require('./utils/logger');
+
+const logger = createLogger('TokenManager');
 
 class TokenManager {
   constructor() {
@@ -29,7 +32,7 @@ class TokenManager {
         return this.currentTokens;
       }
     } catch (error) {
-      console.error('Error loading tokens:', error);
+      logger.error('Error loading tokens', error);
     }
     return null;
   }
@@ -41,9 +44,9 @@ class TokenManager {
     try {
       fs.writeFileSync(this.tokensFile, JSON.stringify(tokens, null, 2));
       this.currentTokens = tokens;
-      console.log('Tokens saved successfully');
+      logger.info('Tokens saved successfully');
     } catch (error) {
-      console.error('Error saving tokens:', error);
+      logger.error('Error saving tokens', error);
       throw error;
     }
   }
@@ -72,7 +75,7 @@ class TokenManager {
       throw new Error('No refresh token available');
     }
 
-    console.log('Refreshing access token...');
+    logger.info('Refreshing access token...');
 
     try {
       const response = await axios.post(
@@ -99,12 +102,12 @@ class TokenManager {
       // Сохраняем новые токены
       this.saveTokens(newTokens);
       
-      console.log('Access token refreshed successfully');
-      console.log(`New token expires at: ${new Date(newTokens.expires_at * 1000).toISOString()}`);
+      logger.info('Access token refreshed successfully');
+      logger.info(`New token expires at: ${new Date(newTokens.expires_at * 1000).toISOString()}`);
       
       return newTokens.access_token;
     } catch (error) {
-      console.error('Error refreshing token:', error.response?.data || error.message);
+      logger.error('Error refreshing token', error.response?.data || error.message);
       throw error;
     }
   }
@@ -125,7 +128,7 @@ class TokenManager {
 
     // Если токен истек или скоро истечет - обновляем
     if (this.isTokenExpired()) {
-      console.log('Token expired or expiring soon, refreshing...');
+      logger.info('Token expired or expiring soon, refreshing...');
       await this.refreshToken();
     }
 
@@ -140,7 +143,7 @@ class TokenManager {
     const refreshToken = process.env.AMOCRM_REFRESH_TOKEN;
     
     if (!accessToken || !refreshToken) {
-      console.warn('AMOCRM_ACCESS_TOKEN or AMOCRM_REFRESH_TOKEN not found in environment');
+      logger.warn('AMOCRM_ACCESS_TOKEN or AMOCRM_REFRESH_TOKEN not found in environment');
       return false;
     }
 
@@ -153,7 +156,7 @@ class TokenManager {
     };
 
     this.saveTokens(tokens);
-    console.log('Tokens initialized from environment variables');
+    logger.info('Tokens initialized from environment variables');
     return true;
   }
 
@@ -165,15 +168,15 @@ class TokenManager {
     setInterval(async () => {
       try {
         if (this.isTokenExpired()) {
-          console.log('Auto-refreshing token...');
+          logger.info('Auto-refreshing token...');
           await this.refreshToken();
         }
       } catch (error) {
-        console.error('Error in auto-refresh:', error);
+        logger.error('Error in auto-refresh', error);
       }
     }, 60 * 60 * 1000); // каждый час
 
-    console.log('Token auto-refresh started (checking every hour)');
+    logger.info('Token auto-refresh started (checking every hour)');
   }
 }
 

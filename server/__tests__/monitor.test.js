@@ -18,17 +18,23 @@ jest.mock('../utils/logger', () => ({
   })
 }));
 
-const database = require('../database');
-const notifications = require('../notifications');
-const tokenManager = require('../token-manager');
-
 describe('Monitor', () => {
   let monitor;
+  let database;
+  let notifications;
+  let tokenManager;
 
   beforeEach(() => {
-    // Reset modules and mocks
-    jest.resetModules();
+    // Clear all mocks
     jest.clearAllMocks();
+    
+    // Reset modules to get fresh instances
+    jest.resetModules();
+    
+    // Require mocked modules
+    database = require('../database');
+    notifications = require('../notifications');
+    tokenManager = require('../token-manager');
     
     // Setup default mocks
     database.insertHealthCheck = jest.fn().mockResolvedValue({ id: 1 });

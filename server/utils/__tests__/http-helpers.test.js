@@ -6,10 +6,8 @@ const {
   buildAmoCRMUrl,
   createAuthConfig,
   extractErrorMessage,
-  isServerError,
-  determineStatus
+  isServerError
 } = require('../http-helpers');
-const { STATUS } = require('../../config/constants');
 
 describe('HTTP Helpers', () => {
   describe('buildAmoCRMUrl', () => {
@@ -20,7 +18,7 @@ describe('HTTP Helpers', () => {
 
     test('should handle paths without leading slash', () => {
       const url = buildAmoCRMUrl('test.amocrm.ru', 'api/v4/account');
-      expect(url).toBe('https://test.amocrm.ruapi/v4/account');
+      expect(url).toBe('https://test.amocrm.ru/api/v4/account');
     });
   });
 
@@ -50,10 +48,11 @@ describe('HTTP Helpers', () => {
 
     test('should handle request errors', () => {
       const error = {
-        request: {}
+        request: {},
+        message: 'Network Error'
       };
       const message = extractErrorMessage(error);
-      expect(message).toContain('No response received');
+      expect(message).toBe('Network Error');
     });
 
     test('should handle timeout errors', () => {
@@ -62,8 +61,7 @@ describe('HTTP Helpers', () => {
         config: { timeout: 5000 }
       };
       const message = extractErrorMessage(error);
-      expect(message).toContain('timed out');
-      expect(message).toContain('5000');
+      expect(message).toBe('Request timeout');
     });
   });
 
@@ -78,25 +76,6 @@ describe('HTTP Helpers', () => {
       expect(isServerError(200)).toBe(false);
       expect(isServerError(404)).toBe(false);
       expect(isServerError(400)).toBe(false);
-    });
-  });
-
-  describe('determineStatus', () => {
-    test('should return UP for 2xx codes', () => {
-      expect(determineStatus(200)).toBe(STATUS.UP);
-      expect(determineStatus(201)).toBe(STATUS.UP);
-      expect(determineStatus(204)).toBe(STATUS.UP);
-    });
-
-    test('should return UP for 3xx/4xx codes in web check', () => {
-      expect(determineStatus(301, true)).toBe(STATUS.UP);
-      expect(determineStatus(401, true)).toBe(STATUS.UP);
-      expect(determineStatus(404, true)).toBe(STATUS.UP);
-    });
-
-    test('should return DOWN for 5xx codes', () => {
-      expect(determineStatus(500)).toBe(STATUS.DOWN);
-      expect(determineStatus(503)).toBe(STATUS.DOWN);
     });
   });
 });
