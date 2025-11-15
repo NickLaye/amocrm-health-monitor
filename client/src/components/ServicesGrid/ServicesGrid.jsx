@@ -12,13 +12,17 @@ import './ServicesGrid.css';
 const ServicesGrid = React.memo(({ status, stats }) => {
   const serviceTypes = useMemo(() => ['GET', 'POST', 'WEB', 'HOOK', 'DP'], []);
 
-  if (!status) return null;
+  if (!status) {
+    return null;
+  }
 
   return (
     <div className="services-grid-all">
       {serviceTypes.map(checkType => {
         const data = status[checkType];
-        if (!data) return null;
+        if (!data) {
+          return null;
+        }
 
         return (
           <ServiceCard

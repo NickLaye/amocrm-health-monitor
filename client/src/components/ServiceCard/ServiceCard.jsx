@@ -72,7 +72,9 @@ const ServiceCard = React.memo(({ checkType, label, data, stats }) => {
 
   const cardClassName = useMemo(() => {
     const classes = ['service-card', `status-${data.status}`];
-    if (isHighResponseTime) classes.push('high-response-time');
+    if (isHighResponseTime) {
+      classes.push('high-response-time');
+    }
     return classes.join(' ');
   }, [data.status, isHighResponseTime]);
 

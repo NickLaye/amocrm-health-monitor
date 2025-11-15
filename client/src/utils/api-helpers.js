@@ -8,7 +8,9 @@
  * @returns {string} User-friendly error message
  */
 export function handleApiError(error) {
-  if (!error) return 'Неизвестная ошибка';
+  if (!error) {
+    return 'Неизвестная ошибка';
+  }
   
   // Network errors
   if (error.message === 'Network Error' || !navigator.onLine) {
@@ -59,7 +61,9 @@ export async function retryWithBackoff(fn, maxRetries = 3, delay = 1000) {
     try {
       return await fn();
     } catch (error) {
-      if (i === maxRetries - 1) throw error;
+      if (i === maxRetries - 1) {
+        throw error;
+      }
       
       const waitTime = delay * Math.pow(2, i);
       console.warn(`Retry ${i + 1}/${maxRetries} after ${waitTime}ms...`);
@@ -104,7 +108,9 @@ export function isValidResponse(response) {
  * @returns {*} Extracted data
  */
 export function extractResponseData(response) {
-  if (!response) return null;
+  if (!response) {
+    return null;
+  }
   return response.data?.data || response.data || null;
 }
 

@@ -31,7 +31,9 @@ function ResponseTimeChart({ data, colors, labels }) {
     const datasets = [];
 
     Object.entries(data).forEach(([checkType, checks]) => {
-      if (checks.length === 0) return;
+      if (checks.length === 0) {
+        return;
+      }
 
       // Sort by timestamp
       const sortedChecks = [...checks].sort((a, b) => a.timestamp - b.timestamp);
