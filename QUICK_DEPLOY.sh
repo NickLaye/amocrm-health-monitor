@@ -5,8 +5,7 @@
 
 set -e  # Остановиться при любой ошибке
 
-SERVER="root@77.73.71.242"
-PASSWORD="eNhQk38N3nJZyTq506"
+
 SSH_CMD="sshpass -p '$PASSWORD' ssh -o StrictHostKeyChecking=no"
 RSYNC_SSH="sshpass -p '$PASSWORD' ssh -o StrictHostKeyChecking=no"
 PROJECT_PATH="/root/Health Check amoCRM"
