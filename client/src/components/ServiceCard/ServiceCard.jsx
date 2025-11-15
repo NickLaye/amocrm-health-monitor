@@ -64,9 +64,8 @@ DetailItem.displayName = 'DetailItem';
  * @param {string} label - Название сервиса
  * @param {object} data - Данные о текущем состоянии
  * @param {object} stats - Статистика сервиса
- * @param {string} view - Вид отображения (compact/detailed)
  */
-const ServiceCard = React.memo(({ checkType, label, data, stats, view = 'compact' }) => {
+const ServiceCard = React.memo(({ checkType, label, data, stats }) => {
   const isHighResponseTime = useMemo(() => {
     return data.responseTime && data.responseTime > 700;
   }, [data.responseTime]);
@@ -99,7 +98,7 @@ const ServiceCard = React.memo(({ checkType, label, data, stats, view = 'compact
           />
         )}
         
-        {view === 'detailed' && stats && (
+        {stats && (
           <>
             <DetailItem 
               label="Uptime:" 
@@ -134,8 +133,7 @@ ServiceCard.propTypes = {
   stats: PropTypes.shape({
     uptime: PropTypes.number,
     totalChecks: PropTypes.number
-  }),
-  view: PropTypes.oneOf(['compact', 'detailed'])
+  })
 };
 
 ServiceCard.displayName = 'ServiceCard';
