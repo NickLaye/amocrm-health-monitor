@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">17.39% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/69</span>
+                <span class='fraction'>12/69</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">3.84% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>1/26</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">11.11% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>1/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">17.39% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/69</span>
+                <span class='fraction'>12/69</span>
             </div>
         
             
@@ -244,23 +244,23 @@
 <a name='L179'></a><a href='#L179'>179</a>
 <a name='L180'></a><a href='#L180'>180</a>
 <a name='L181'></a><a href='#L181'>181</a>
-<a name='L182'></a><a href='#L182'>182</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L182'></a><a href='#L182'>182</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -423,24 +423,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const axios = <span class="cstat-no" title="statement not covered" >require('axios');</span>
-const fs = <span class="cstat-no" title="statement not covered" >require('fs');</span>
-const path = <span class="cstat-no" title="statement not covered" >require('path');</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 &nbsp;
 class TokenManager {
-<span class="fstat-no" title="function not covered" >  co</span>nstructor() {
-<span class="cstat-no" title="statement not covered" >    this.tokensFile = path.join(__dirname, '../data/tokens.json');</span>
-<span class="cstat-no" title="statement not covered" >    this.domain = process.env.AMOCRM_DOMAIN;</span>
-<span class="cstat-no" title="statement not covered" >    this.clientId = process.env.AMOCRM_CLIENT_ID;</span>
-<span class="cstat-no" title="statement not covered" >    this.clientSecret = process.env.AMOCRM_CLIENT_SECRET;</span>
-<span class="cstat-no" title="statement not covered" >    this.redirectUri = process.env.AMOCRM_REDIRECT_URI;</span>
-<span class="cstat-no" title="statement not covered" >    this.currentTokens = null;</span>
+  constructor() {
+    this.tokensFile = path.join(__dirname, '../data/tokens.json');
+    this.domain = process.env.AMOCRM_DOMAIN;
+    this.clientId = process.env.AMOCRM_CLIENT_ID;
+    this.clientSecret = process.env.AMOCRM_CLIENT_SECRET;
+    this.redirectUri = process.env.AMOCRM_REDIRECT_URI;
+    this.currentTokens = null;
     
     // Создаем директорию для токенов если её нет
-    const dataDir = <span class="cstat-no" title="statement not covered" >path.join(__dirname, '../data');</span>
-<span class="cstat-no" title="statement not covered" >    if (!fs.existsSync(dataDir)) {</span>
+    const dataDir = path.join(__dirname, '../data');
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!fs.existsSync(dataDir)) {
 <span class="cstat-no" title="statement not covered" >      fs.mkdirSync(dataDir, { recursive: true });</span>
     }
   }
@@ -604,7 +604,7 @@ class TokenManager {
   }
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >module.exports = new TokenManager();</span>
+module.exports = new TokenManager();
 &nbsp;
 &nbsp;</pre></td></tr></table></pre>
 
@@ -613,7 +613,7 @@ class TokenManager {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-15T10:06:42.332Z
+                at 2025-11-15T10:09:24.024Z
             </div>
         <script src="../prettify.js"></script>
         <script>

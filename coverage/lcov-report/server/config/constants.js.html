@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/6</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -140,7 +140,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,7 +152,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -164,7 +164,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -173,7 +173,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -184,14 +184,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -208,7 +208,7 @@
  * Check types for amoCRM monitoring
  * @enum {string}
  */
-const CHECK_TYPES = <span class="cstat-no" title="statement not covered" >{</span>
+const CHECK_TYPES = {
   GET: 'GET',
   POST: 'POST',
   WEB: 'WEB',
@@ -220,7 +220,7 @@ const CHECK_TYPES = <span class="cstat-no" title="statement not covered" >{</spa
  * Human-readable labels for check types
  * @type {Object.&lt;string, string&gt;}
  */
-const CHECK_TYPE_LABELS = <span class="cstat-no" title="statement not covered" >{</span>
+const CHECK_TYPE_LABELS = {
   GET: 'API (GET)',
   POST: 'API (POST)',
   WEB: 'Веб-интерфейс',
@@ -232,7 +232,7 @@ const CHECK_TYPE_LABELS = <span class="cstat-no" title="statement not covered" >
  * Status types
  * @enum {string}
  */
-const STATUS = <span class="cstat-no" title="statement not covered" >{</span>
+const STATUS = {
   UP: 'up',
   DOWN: 'down',
   UNKNOWN: 'unknown'
@@ -241,7 +241,7 @@ const STATUS = <span class="cstat-no" title="statement not covered" >{</span>
 /**
  * Default configuration values
  */
-const DEFAULTS = <span class="cstat-no" title="statement not covered" >{</span>
+const DEFAULTS = {
   CHECK_INTERVAL: 60000,        // 1 minute
   TIMEOUT_THRESHOLD: 10000,     // 10 seconds
   PORT: 3001,
@@ -252,14 +252,14 @@ const DEFAULTS = <span class="cstat-no" title="statement not covered" >{</span>
 /**
  * HTTP status code ranges
  */
-const HTTP_STATUS = <span class="cstat-no" title="statement not covered" >{</span>
+const HTTP_STATUS = {
   SUCCESS_MIN: 200,
   SUCCESS_MAX: 299,
   CLIENT_ERROR_MIN: 400,
   SERVER_ERROR_MIN: 500
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >module.exports = {</span>
+module.exports = {
   CHECK_TYPES,
   CHECK_TYPE_LABELS,
   STATUS,
@@ -274,7 +274,7 @@ const HTTP_STATUS = <span class="cstat-no" title="statement not covered" >{</spa
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-15T10:06:42.332Z
+                at 2025-11-15T10:09:24.024Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
