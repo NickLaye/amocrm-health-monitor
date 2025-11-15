@@ -39,8 +39,7 @@ function IncidentHistory({ incidents }) {
     return format(new Date(timestamp), 'dd MMM yyyy, HH:mm:ss', { locale: ru });
   };
 
-  const displayedIncidents = showAll ? incidents : incidents.slice(0, 10);
-
+  // Check if incidents is undefined or empty before using slice
   if (!incidents || incidents.length === 0) {
     return (
       <div className="incident-history">
@@ -52,6 +51,8 @@ function IncidentHistory({ incidents }) {
       </div>
     );
   }
+
+  const displayedIncidents = showAll ? incidents : incidents.slice(0, 10);
 
   return (
     <div className="incident-history">
