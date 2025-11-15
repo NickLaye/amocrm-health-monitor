@@ -38,21 +38,40 @@ export function useMonitoring() {
 
   // Setup SSE for real-time updates
   useEffect(() => {
-    eventSourceRef.current = api.subscribeToUpdates(
-      (checkType, data) => {
-        setStatus(prevStatus => ({
-          ...prevStatus,
-          [checkType]: data
-        }));
-        setLastUpdate(new Date());
-      },
-      (err) => {
-        console.error('SSE Error:', err);
-        setError('Ошибка подключения к серверу');
+    let mounted = true;
+    
+    const setupSSE = async () => {
+      try {
+        const eventSource = await api.subscribeToUpdates(
+          (checkType, data) => {
+            if (mounted) {
+              setStatus(prevStatus => ({
+                ...prevStatus,
+                [checkType]: data
+              }));
+              setLastUpdate(new Date());
+            }
+          }
+        );
+        
+        if (mounted) {
+          eventSourceRef.current = eventSource;
+        } else {
+          // If component unmounted during async operation, close connection
+          eventSource.close();
+        }
+      } catch (err) {
+        console.error('SSE Setup Error:', err);
+        if (mounted) {
+          setError('Ошибка подключения к серверу');
+        }
       }
-    );
+    };
+    
+    setupSSE();
 
     return () => {
+      mounted = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
       }

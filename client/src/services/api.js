@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { fetchConfig } from './config';
 
 // Use relative path in production, full URL in development
 const API_BASE_URL = process.env.REACT_APP_API_URL || (
@@ -66,10 +67,12 @@ class ApiService {
   }
 
   // Subscribe to real-time updates via SSE
-  subscribeToUpdates(callback) {
-    // Get API_SECRET from environment (for SSE authentication)
-    // In production, token is passed via query param since EventSource doesn't support headers
-    const apiSecret = process.env.REACT_APP_API_SECRET || '';
+  async subscribeToUpdates(callback) {
+    // Load runtime configuration from backend
+    const config = await fetchConfig();
+    const apiSecret = config.apiSecret || '';
+    
+    // Build SSE URL with token (EventSource doesn't support custom headers)
     const streamUrl = apiSecret 
       ? `${API_BASE_URL}/stream?token=${encodeURIComponent(apiSecret)}`
       : `${API_BASE_URL}/stream`;
