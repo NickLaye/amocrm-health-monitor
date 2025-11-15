@@ -1,7 +1,6 @@
 import React from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
-import IncidentHistory from './components/IncidentHistory';
 import ErrorBoundary from './components/ErrorBoundary';
 import ThemeToggle from './components/ThemeToggle';
 import { useMonitoring } from './hooks/useMonitoring';
@@ -43,7 +42,6 @@ function App() {
 
         <main className="App-main">
           <Dashboard status={status} stats={stats} lastUpdate={lastUpdate} />
-          <IncidentHistory incidents={incidents} />
         </main>
 
         <footer className="App-footer">
