@@ -1,0 +1,31 @@
+# Dependencies
+node_modules
+package-lock.json
+
+# Build artifacts
+build
+dist
+coverage
+
+# Logs
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode
+.idea
+
+# Generated files
+swagger.yaml
+*.min.js
+*.min.css
+

@@ -1,0 +1,17 @@
+{
+  "*.js": [
+    "eslint --fix",
+    "prettier --write"
+  ],
+  "*.{json,md,yml,yaml}": [
+    "prettier --write"
+  ],
+  "*.css": [
+    "prettier --write"
+  ],
+  "client/**/*.{js,jsx}": [
+    "cd client && eslint --fix",
+    "cd client && prettier --write"
+  ]
+}
+

@@ -1,0 +1,473 @@
+openapi: 3.0.3
+info:
+  title: amoCRM Health Monitor API
+  description: |
+    REST API для мониторинга здоровья сервисов amoCRM в реальном времени.
+    
+    ## Возможности
+    - Получение текущего статуса всех сервисов
+    - Просмотр исторических данных проверок
+    - Анализ инцидентов и статистики
+    - Real-time обновления через Server-Sent Events (SSE)
+    
+    ## Аутентификация
+    Все endpoints требуют API ключ в заголовке `x-api-key` (кроме `/api/health`).
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+  - url: https://amohealth.duckdns.org
+    description: Production server
+
+tags:
+  - name: Status
+    description: Получение текущего статуса сервисов
+  - name: History
+    description: Исторические данные проверок
+  - name: Incidents
+    description: Управление и просмотр инцидентов
+  - name: Statistics
+    description: Статистика и метрики
+  - name: Monitoring
+    description: System health and metrics
+  - name: Real-time
+    description: Server-Sent Events для real-time обновлений
+
+paths:
+  /api/status:
+    get:
+      tags:
+        - Status
+      summary: Получить текущий статус всех сервисов
+      description: Возвращает текущий статус, время последней проверки и время ответа для всех типов проверок
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+              example:
+                GET:
+                  status: "up"
+                  lastCheck: 1705322400000
+                  responseTime: 450
+                POST:
+                  status: "up"
+                  lastCheck: 1705322400000
+                  responseTime: 520
+                WEB:
+                  status: "up"
+                  lastCheck: 1705322400000
+                  responseTime: 300
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/history:
+    get:
+      tags:
+        - History
+      summary: Получить историю проверок
+      description: Возвращает исторические данные проверок за указанный период
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: checkType
+          in: query
+          description: Тип проверки для фильтрации
+          required: false
+          schema:
+            $ref: '#/components/schemas/CheckType'
+        - name: hoursBack
+          in: query
+          description: Количество часов назад (default: 24, max: 720)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 720
+            default: 24
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HealthCheck'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/incidents:
+    get:
+      tags:
+        - Incidents
+      summary: Получить список инцидентов
+      description: Возвращает список инцидентов за указанный период
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: checkType
+          in: query
+          description: Тип проверки для фильтрации
+          required: false
+          schema:
+            $ref: '#/components/schemas/CheckType'
+        - name: hoursBack
+          in: query
+          description: Количество часов назад (default: 24, max: 720)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 720
+            default: 24
+        - name: status
+          in: query
+          description: Статус инцидента (open/closed)
+          required: false
+          schema:
+            type: string
+            enum: [open, closed]
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Incident'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/stats:
+    get:
+      tags:
+        - Statistics
+      summary: Получить статистику по сервисам
+      description: Возвращает uptime, среднее время ответа и другие метрики
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: checkType
+          in: query
+          description: Тип проверки для фильтрации
+          required: false
+          schema:
+            $ref: '#/components/schemas/CheckType'
+        - name: hoursBack
+          in: query
+          description: Количество часов назад (default: 24)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 720
+            default: 24
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Statistics'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/health:
+    get:
+      tags:
+        - Monitoring
+      summary: Health check endpoint
+      description: Проверка работоспособности API (не требует аутентификации)
+      responses:
+        '200':
+          description: API работает нормально
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  timestamp:
+                    type: integer
+                    format: int64
+                    example: 1705322400000
+                  uptime:
+                    type: number
+                    description: Uptime в секундах
+                    example: 86400.5
+        '503':
+          description: Сервис недоступен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  message:
+                    type: string
+
+  /api/metrics:
+    get:
+      tags:
+        - Monitoring
+      summary: Prometheus metrics
+      description: Метрики в формате Prometheus для мониторинга
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP amocrm_service_status Current status of amoCRM services
+                # TYPE amocrm_service_status gauge
+                amocrm_service_status{check_type="GET"} 1
+                amocrm_service_status{check_type="POST"} 1
+
+  /api/stream:
+    get:
+      tags:
+        - Real-time
+      summary: Server-Sent Events stream
+      description: |
+        Подключение к потоку real-time обновлений через SSE.
+        
+        События:
+        - `status-update` - обновление статуса сервиса
+        - `incident-start` - начало нового инцидента
+        - `incident-end` - завершение инцидента
+        
+        Формат события:
+        ```
+        event: status-update
+        data: {"checkType":"GET","status":"up","responseTime":450}
+        ```
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: SSE stream opened
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API ключ для аутентификации (из переменной окружения API_SECRET)
+
+  schemas:
+    CheckType:
+      type: string
+      enum:
+        - GET
+        - POST
+        - WEB
+        - HOOK
+        - DP
+      description: |
+        Типы проверок:
+        - GET: API GET запросы
+        - POST: API POST запросы (запись)
+        - WEB: Веб-интерфейс
+        - HOOK: Вебхуки
+        - DP: Digital Pipeline
+
+    ServiceStatus:
+      type: string
+      enum:
+        - up
+        - down
+      description: Статус сервиса
+
+    StatusResponse:
+      type: object
+      additionalProperties:
+        type: object
+        properties:
+          status:
+            $ref: '#/components/schemas/ServiceStatus'
+          lastCheck:
+            type: integer
+            format: int64
+            description: Timestamp последней проверки (ms)
+          responseTime:
+            type: integer
+            description: Время ответа в миллисекундах
+          error:
+            type: string
+            nullable: true
+            description: Сообщение об ошибке (если статус down)
+      example:
+        GET:
+          status: "up"
+          lastCheck: 1705322400000
+          responseTime: 450
+
+    HealthCheck:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный ID проверки
+        timestamp:
+          type: integer
+          format: int64
+          description: Timestamp проверки (ms)
+        check_type:
+          $ref: '#/components/schemas/CheckType'
+        status:
+          $ref: '#/components/schemas/ServiceStatus'
+        response_time:
+          type: integer
+          description: Время ответа в миллисекундах
+        error_message:
+          type: string
+          nullable: true
+          description: Сообщение об ошибке (если есть)
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Уникальный ID инцидента
+        check_type:
+          $ref: '#/components/schemas/CheckType'
+        start_time:
+          type: integer
+          format: int64
+          description: Timestamp начала инцидента (ms)
+        end_time:
+          type: integer
+          format: int64
+          nullable: true
+          description: Timestamp завершения инцидента (ms, null если активен)
+        error_message:
+          type: string
+          description: Сообщение об ошибке
+        duration:
+          type: integer
+          nullable: true
+          description: Длительность инцидента в миллисекундах
+
+    Statistics:
+      type: object
+      properties:
+        uptime:
+          type: number
+          format: float
+          description: Процент времени работы (0-100)
+          example: 99.5
+        avgResponseTime:
+          type: number
+          format: float
+          description: Среднее время ответа в миллисекундах
+          example: 450.5
+        totalChecks:
+          type: integer
+          description: Общее количество проверок
+          example: 1440
+        successfulChecks:
+          type: integer
+          description: Количество успешных проверок
+          example: 1432
+        failedChecks:
+          type: integer
+          description: Количество неудачных проверок
+          example: 8
+        totalIncidents:
+          type: integer
+          description: Общее количество инцидентов
+          example: 3
+        mttr:
+          type: number
+          format: float
+          description: Mean Time To Recovery (минуты)
+          example: 5.5
+        mtbf:
+          type: number
+          format: float
+          description: Mean Time Between Failures (часы)
+          example: 72.3
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Сообщение об ошибке
+        details:
+          type: string
+          description: Детали ошибки (опционально)
+
+  responses:
+    UnauthorizedError:
+      description: Отсутствует или недействителен API ключ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Unauthorized"
+            details: "Invalid or missing API key"
+
+    ValidationError:
+      description: Ошибка валидации параметров
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Validation Error"
+            details: "Invalid hoursBack parameter"
+
+    InternalServerError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal Server Error"
+            details: "Database connection failed"
+

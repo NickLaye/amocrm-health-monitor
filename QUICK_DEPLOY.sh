@@ -2,12 +2,34 @@
 
 # Quick Deploy Script для amohealth.duckdns.org
 # Этот скрипт копирует проект на сервер и запускает его
+#
+# ТРЕБУЕТСЯ НАСТРОЙКА:
+# 1. Установите SSH-ключи для беспарольного доступа к серверу (рекомендуется):
+#    ssh-copy-id root@your-server-ip
+#
+# 2. Или установите переменные окружения (не рекомендуется):
+#    export DEPLOY_SERVER="root@your-server-ip"
+#    export DEPLOY_PASSWORD="your_password"
+#
+# 3. Убедитесь что .env файл существует локально или на сервере
+#    Создайте его на основе .env.example
+#
+# Использование:
+#    ./QUICK_DEPLOY.sh
 
 set -e  # Остановиться при любой ошибке
 
+SERVER="${DEPLOY_SERVER:-root@your-server-ip}"
+# Use SSH keys instead of password for security
+# Set DEPLOY_PASSWORD only if you must use password authentication
+SSH_CMD="ssh -o StrictHostKeyChecking=no"
+RSYNC_SSH="ssh -o StrictHostKeyChecking=no"
 
-SSH_CMD="sshpass -p '$PASSWORD' ssh -o StrictHostKeyChecking=no"
-RSYNC_SSH="sshpass -p '$PASSWORD' ssh -o StrictHostKeyChecking=no"
+# If DEPLOY_PASSWORD is set, use sshpass (not recommended)
+if [ -n "$DEPLOY_PASSWORD" ]; then
+    SSH_CMD="sshpass -p '$DEPLOY_PASSWORD' ssh -o StrictHostKeyChecking=no"
+    RSYNC_SSH="sshpass -p '$DEPLOY_PASSWORD' ssh -o StrictHostKeyChecking=no"
+fi
 PROJECT_PATH="/root/Health Check amoCRM"
 LOCAL_PATH="/Users/nicklaye/Desktop/Cursor Projects/Health Check amoCRM"
 
@@ -41,27 +63,16 @@ rsync -avz --delete -e "$RSYNC_SSH" \
 echo "✓ Проект скопирован"
 echo ""
 
-# Создание .env файла
-echo "Создание .env файла..."
-$SSH_CMD $SERVER "cat > '$PROJECT_PATH/.env' << 'ENVEOF'
-# amoCRM Configuration
-AMOCRM_DOMAIN=skillssales.amocrm.ru
-AMOCRM_ACCESS_TOKEN=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImp0aSI6IjcyOWY4OWQ0MWIzYWU5ZTgwYWM3MjJmYzNmZGJmNTEwMWU1YjA1YmI4NDY1ZTM2YWJkM2RhYTY5NDYyYzI3MTI4ZTE3YmE2NGQzMDY1YTBmIn0.eyJhdWQiOiIwZmI4YmU4Ni00YmMyLTRhN2ItYmEwNi02MDNiOWM0NjVlNjciLCJqdGkiOiI3MjlmODlkNDFiM2FlOWU4MGFjNzIyZmMzZmRiZjUxMDFlNWIwNWJiODQ2NWUzNmFiZDNkYWE2OTQ2MmMyNzEyOGUxN2JhNjRkMzA2NWEwZiIsImlhdCI6MTc2Mjg0NjcxNSwibmJmIjoxNzYyODQ2NzE1LCJleHAiOjE3NjI5MzMxMTUsInN1YiI6IjY5NzYwOTAiLCJncmFudF90eXBlIjoiIiwiYWNjb3VudF9pZCI6MjkyMzIzNzksImJhc2VfZG9tYWluIjoiYW1vY3JtLnJ1IiwidmVyc2lvbiI6Miwic2NvcGVzIjpbInB1c2hfbm90aWZpY2F0aW9ucyIsImZpbGVzIiwiY3JtIiwiZmlsZXNfZGVsZXRlIiwibm90aWZpY2F0aW9ucyJdLCJoYXNoX3V1aWQiOiIyOGQ4MGYzNi0xNzU5LTQ0MzYtYjc1Ni1lNGYzMzJlOTg2ZDkiLCJ1c2VyX2ZsYWdzIjowLCJhcGlfZG9tYWluIjoiYXBpLWEuYW1vY3JtLnJ1In0.a5btf0244P3_ltK9wVXbEQgpW24RUX1xkMW7sU3nBB8kl0V7SWodJvlPERa1TLrlxSH5hiDZTOlkvEvkTM8fQpBASDhDwj9kTDV5o6Pj8qb5LVaiuSeStRAOfznmYfGnDI1CrMCwLFlGeXgsrC1dX8ClC3bp0iLnlCXQMXgog8PtCGrIyfq4hPoR4mihNxEHOojpyIywLtsCrk9W-rF1rakPE_XIfX7yA56T0XIY3XKpK1hZvf-Deywkanh2PbnB_RjzDtzq8rQFVMLhukRgrNrdMCmAj1YvbcZwA4V4fU6z93UhVc4WooFgttRa5nW05EA8L11z1r1QruxP_Ypawg
-
-# Mattermost Webhook
-MATTERMOST_WEBHOOK_URL=https://mm-time.skyeng.tech/hooks/tcc1zn8tgigs5bzofr8t5xoi6r
-
-# Monitoring Settings
-CHECK_INTERVAL=30000
-TIMEOUT_THRESHOLD=10000
-
-# Server Configuration
-PORT=3001
-NODE_ENV=production
-ENVEOF
-"
-
-echo "✓ .env файл создан"
+# Копирование .env файла на сервер (если существует локально)
+echo "Копирование .env файла..."
+if [ -f ".env" ]; then
+    rsync -avz -e "$RSYNC_SSH" .env "$SERVER:$PROJECT_PATH/"
+    echo "✓ .env файл скопирован с локальной машины"
+else
+    echo "⚠ Файл .env не найден локально"
+    echo "⚠ Убедитесь, что .env файл существует на сервере: $PROJECT_PATH/.env"
+    echo "⚠ Или создайте его вручную на основе .env.example"
+fi
 echo ""
 
 # Установка зависимостей

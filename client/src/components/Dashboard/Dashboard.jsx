@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import './Dashboard.css';
 import StatusCard from '../StatusCard';
 import LastUpdateCard from '../LastUpdateCard';
 import PeriodSelector from '../PeriodSelector';
 import AverageResponseTime from '../AverageResponseTime';
 import ServicesGrid from '../ServicesGrid';
-import ResponseTimeChart from '../ResponseTimeChart';
-import IncidentHistory from '../IncidentHistory';
+import LoadingSpinner from '../LoadingSpinner';
 import api from '../../services/api';
 import { CHECK_TYPE_COLORS, CHECK_TYPE_LABELS } from '../../constants';
 import PropTypes from 'prop-types';
+
+// Lazy load heavy components for better initial load performance
+const ResponseTimeChart = lazy(() => import('../ResponseTimeChart'));
+const IncidentHistory = lazy(() => import('../IncidentHistory'));
 
 /**
  * Dashboard - Главный компонент мониторинга
@@ -83,20 +86,24 @@ function Dashboard({ status, stats, lastUpdate }) {
       {/* All Services in one row */}
       <ServicesGrid status={status} stats={stats} />
 
-      {/* Response Time Chart */}
+      {/* Response Time Chart - Lazy Loaded */}
       {hasHistoryData && (
         <div className="chart-section">
           <h3>График времени ответа</h3>
-          <ResponseTimeChart 
-            data={historyData} 
-            colors={CHECK_TYPE_COLORS}
-            labels={CHECK_TYPE_LABELS}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <ResponseTimeChart 
+              data={historyData} 
+              colors={CHECK_TYPE_COLORS}
+              labels={CHECK_TYPE_LABELS}
+            />
+          </Suspense>
         </div>
       )}
 
-      {/* Incident History */}
-      <IncidentHistory period={selectedPeriod} />
+      {/* Incident History - Lazy Loaded */}
+      <Suspense fallback={<LoadingSpinner />}>
+        <IncidentHistory period={selectedPeriod} />
+      </Suspense>
     </div>
   );
 }

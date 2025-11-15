@@ -1,0 +1,90 @@
+global:
+  # Глобальные настройки для AlertManager
+  resolve_timeout: 5m
+  
+  # Mattermost webhook URL (из environment variable)
+  mattermost_api_url: '${MATTERMOST_WEBHOOK_URL}'
+
+# Шаблоны для уведомлений
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Маршрутизация алертов
+route:
+  # Группировка алертов по label
+  group_by: ['alertname', 'check_type']
+  
+  # Ожидание перед отправкой первого алерта из группы
+  group_wait: 10s
+  
+  # Ожидание перед отправкой новых алертов в существующую группу
+  group_interval: 10s
+  
+  # Минимальный интервал повторной отправки одного и того же алерта
+  repeat_interval: 3h
+  
+  # Получатель по умолчанию
+  receiver: 'mattermost-general'
+  
+  # Маршруты для специфичных алертов
+  routes:
+    # Критичные алерты (service down)
+    - match:
+        severity: critical
+      receiver: 'mattermost-critical'
+      group_wait: 5s
+      repeat_interval: 30m
+      
+    # Предупреждения (high response time, low uptime)
+    - match:
+        severity: warning
+      receiver: 'mattermost-warnings'
+      group_wait: 30s
+      repeat_interval: 2h
+      
+    # Информационные алерты
+    - match:
+        severity: info
+      receiver: 'mattermost-general'
+      repeat_interval: 12h
+
+# Получатели уведомлений
+receivers:
+  # Критичные события
+  - name: 'mattermost-critical'
+    webhook_configs:
+      - url: '${MATTERMOST_WEBHOOK_URL}'
+        send_resolved: true
+        http_config:
+          follow_redirects: true
+        # Формат сообщения для Mattermost
+        max_alerts: 0
+
+  # Предупреждения
+  - name: 'mattermost-warnings'
+    webhook_configs:
+      - url: '${MATTERMOST_WEBHOOK_URL}'
+        send_resolved: true
+
+  # Общие уведомления
+  - name: 'mattermost-general'
+    webhook_configs:
+      - url: '${MATTERMOST_WEBHOOK_URL}'
+        send_resolved: true
+
+# Правила подавления (inhibition)
+inhibit_rules:
+  # Не отправлять warning если есть critical для того же сервиса
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['check_type']
+    
+  # Не отправлять info если есть warning или critical
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['check_type']
+

@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "Running tests before push..."
+npm test -- --watchAll=false --passWithNoTests
+
+echo "Building frontend..."
+cd client && npm run build
+
+echo "All checks passed! Pushing code..."
+
