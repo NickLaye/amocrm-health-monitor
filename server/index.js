@@ -153,7 +153,7 @@ async function start() {
     logger.info('Database cleanup cron job scheduled (daily at 3:00 AM)');
     
     // Start server
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       logger.info(`
 ========================================
 🚀 amoCRM Health Monitor started
