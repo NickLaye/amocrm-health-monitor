@@ -8,8 +8,9 @@ import './ServicesGrid.css';
  * ServicesGrid - Сетка карточек сервисов
  * @param {object} status - Текущий статус всех сервисов
  * @param {object} stats - Статистика всех сервисов
+ * @param {string} view - Режим отображения ('compact' | 'detailed')
  */
-const ServicesGrid = React.memo(({ status, stats }) => {
+const ServicesGrid = React.memo(({ status, stats, view = 'compact' }) => {
   const serviceTypes = useMemo(() => ['GET', 'POST', 'WEB', 'HOOK', 'DP'], []);
 
   if (!status) {
@@ -31,6 +32,7 @@ const ServicesGrid = React.memo(({ status, stats }) => {
             label={CHECK_TYPE_LABELS[checkType]}
             data={data}
             stats={stats?.[checkType]}
+            view={view}
           />
         );
       })}
@@ -40,12 +42,14 @@ const ServicesGrid = React.memo(({ status, stats }) => {
 
 ServicesGrid.propTypes = {
   status: PropTypes.object,
-  stats: PropTypes.object
+  stats: PropTypes.object,
+  view: PropTypes.oneOf(['compact', 'detailed'])
 };
 
 ServicesGrid.defaultProps = {
   status: null,
-  stats: null
+  stats: null,
+  view: 'compact'
 };
 
 ServicesGrid.displayName = 'ServicesGrid';
