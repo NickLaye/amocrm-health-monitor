@@ -15,7 +15,9 @@ function IncidentHistory({ incidents }) {
   const [showAll, setShowAll] = useState(false);
 
   const formatDuration = (milliseconds) => {
-    if (!milliseconds) return 'В процессе...';
+    if (!milliseconds) {
+      return 'В процессе...';
+    }
     
     const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);

@@ -40,7 +40,9 @@ AverageResponseTimeCard.displayName = 'AverageResponseTimeCard';
  * @param {object} stats - Статистика по типам запросов
  */
 const AverageResponseTime = React.memo(({ stats }) => {
-  if (!stats) return null;
+  if (!stats) {
+    return null;
+  }
 
   const getResponseTime = (checkType) => {
     return stats[checkType]?.averageResponseTime || 0;

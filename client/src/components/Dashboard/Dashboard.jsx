@@ -50,7 +50,9 @@ function Dashboard({ status, stats, lastUpdate }) {
 
   // Calculate overall status
   const overallStatus = useMemo(() => {
-    if (!status) return 'unknown';
+    if (!status) {
+      return 'unknown';
+    }
     
     const statuses = Object.values(status);
     const hasDown = statuses.some(s => s.status === 'down');

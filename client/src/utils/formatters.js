@@ -46,7 +46,9 @@ export function formatPercentage(percentage, decimals = 1) {
  * @returns {string} Formatted date/time string
  */
 export function formatTimestamp(timestamp, locale = 'ru-RU') {
-  if (!timestamp) return '';
+  if (!timestamp) {
+    return '';
+  }
   const date = new Date(timestamp);
   return date.toLocaleString(locale);
 }
@@ -58,7 +60,9 @@ export function formatTimestamp(timestamp, locale = 'ru-RU') {
  * @returns {string} Formatted time string
  */
 export function formatTime(timestamp, locale = 'ru-RU') {
-  if (!timestamp) return '';
+  if (!timestamp) {
+    return '';
+  }
   const date = new Date(timestamp);
   return date.toLocaleTimeString(locale);
 }
@@ -69,7 +73,9 @@ export function formatTime(timestamp, locale = 'ru-RU') {
  * @returns {string} Formatted duration (e.g., "5 мин 30 сек")
  */
 export function formatDuration(milliseconds) {
-  if (!milliseconds || milliseconds < 0) return '0 сек';
+  if (!milliseconds || milliseconds < 0) {
+    return '0 сек';
+  }
   
   const seconds = Math.floor(milliseconds / 1000);
   const minutes = Math.floor(seconds / 60);

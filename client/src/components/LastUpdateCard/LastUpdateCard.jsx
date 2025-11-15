@@ -7,7 +7,9 @@ import './LastUpdateCard.css';
  * @param {Date} lastUpdate - Дата и время последнего обновления
  */
 const LastUpdateCard = React.memo(({ lastUpdate }) => {
-  if (!lastUpdate) return null;
+  if (!lastUpdate) {
+    return null;
+  }
 
   return (
     <div className="last-update-card">
