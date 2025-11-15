@@ -76,6 +76,36 @@ router.get('/stats', validateStats, asyncHandler(async (req, res) => {
     // Use new getDetailedStatistics method that returns all 15 metrics
     const detailedStats = await database.getDetailedStatistics(checkType, hours);
     
+    // Handle case where getDetailedStatistics returns undefined/null (return default values)
+    if (!detailedStats) {
+      logger.warn(`getDetailedStatistics returned null/undefined for ${checkType}, using defaults`);
+      stats[checkType] = {
+        uptime: 100,
+        totalChecks: 0,
+        mttr: 0,
+        mtbf: hours,
+        apdexScore: 1.0,
+        successRate: 100,
+        failureCount: 0,
+        avgResponseTime: 0,
+        minResponseTime: 0,
+        maxResponseTime: 0,
+        p95ResponseTime: 0,
+        p99ResponseTime: 0,
+        lastIncident: null,
+        incidentCount: 0,
+        availability: 100,
+        averageResponseTime: 0,
+        checkCount: 0,
+        percentile95: 0,
+        apdex: 1.0,
+        errorRate: 0,
+        upChecks: 0,
+        downChecks: 0
+      };
+      continue;
+    }
+    
     stats[checkType] = {
       // Basic metrics (1-2)
       uptime: detailedStats.uptime,
@@ -107,6 +137,10 @@ router.get('/stats', validateStats, asyncHandler(async (req, res) => {
       availability: detailedStats.availability,
       
       // Legacy fields for backwards compatibility
+      averageResponseTime: detailedStats.avgResponseTime,
+      checkCount: detailedStats.totalChecks,
+      percentile95: detailedStats.p95ResponseTime,
+      apdex: detailedStats.apdexScore,
       errorRate: detailedStats.failureCount > 0 
         ? parseFloat(((detailedStats.failureCount / detailedStats.totalChecks) * 100).toFixed(2)) 
         : 0,

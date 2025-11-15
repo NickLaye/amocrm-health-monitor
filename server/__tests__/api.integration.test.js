@@ -267,9 +267,13 @@ describe('API Integration Tests', () => {
 
     test('should accept hours parameter', async () => {
       const response = await request(app)
-        .get('/api/stats?hours=12')
-        .expect(200);
+        .get('/api/stats?hours=12');
 
+      if (response.status !== 200) {
+        console.log('Response body:', JSON.stringify(response.body, null, 2));
+      }
+      
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.period).toBe('12 hours');
     });
