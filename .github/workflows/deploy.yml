@@ -108,7 +108,7 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           # Copy artifact to server
-          scp deploy.tar.gz ${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/
+          scp deploy.tar.gz "${SERVER_USER}@${SERVER_HOST}:${DEPLOY_PATH}/"
           
           # Extract and restart services
           ssh ${SERVER_USER}@${SERVER_HOST} << 'ENDSSH'
