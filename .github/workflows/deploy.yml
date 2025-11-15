@@ -39,6 +39,7 @@ jobs:
         run: cd client && npm run build
         env:
           CI: false
+          REACT_APP_API_SECRET: ${{ secrets.API_SECRET }}
 
       - name: Run tests
         run: npm test
