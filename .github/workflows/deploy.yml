@@ -51,7 +51,8 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r server deploy/
-          cp -r client/build deploy/client-build
+          # Frontend is deployed manually to preserve working bundle
+          # cp -r client/build deploy/client-build
           cp package.json deploy/
           cp package-lock.json deploy/
           cp nginx.conf deploy/ || echo "nginx.conf not found"
