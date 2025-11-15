@@ -148,8 +148,19 @@ jobs:
             fi
             
             # Restart application with PM2
-            pm2 restart amocrm-health-monitor || pm2 start server/index.js --name amocrm-health-monitor
+            echo "PM2 status before restart:"
+            pm2 list
+            
+            pm2 delete amocrm-health-monitor || true
+            pm2 start server/index.js --name amocrm-health-monitor --time
             pm2 save
+            
+            echo "Waiting 5 seconds for PM2 to start..."
+            sleep 5
+            
+            echo "PM2 status after restart:"
+            pm2 list
+            pm2 logs amocrm-health-monitor --lines 20 --nostream || true
           ENDSSH
 
       - name: Health check
