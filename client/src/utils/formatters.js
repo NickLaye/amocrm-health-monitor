@@ -9,7 +9,9 @@
  * @returns {string} Formatted time string
  */
 export function formatResponseTime(milliseconds, decimals = 3) {
-  if (milliseconds == null || isNaN(milliseconds)) return '0.000';
+  if (milliseconds === null || milliseconds === undefined || isNaN(milliseconds)) {
+    return '0.000';
+  }
   const seconds = milliseconds / 1000;
   return seconds.toFixed(decimals);
 }
@@ -21,7 +23,9 @@ export function formatResponseTime(milliseconds, decimals = 3) {
  * @returns {string} Formatted uptime string with % sign
  */
 export function formatUptime(uptime, decimals = 1) {
-  if (uptime == null || isNaN(uptime)) return '0.0%';
+  if (uptime === null || uptime === undefined || isNaN(uptime)) {
+    return '0.0%';
+  }
   return `${uptime.toFixed(decimals)}%`;
 }
 
@@ -91,7 +95,9 @@ export function formatDuration(milliseconds) {
  * @returns {string} Formatted number string
  */
 export function formatNumber(num, locale = 'ru-RU') {
-  if (num == null || isNaN(num)) return '0';
+  if (num === null || num === undefined || isNaN(num)) {
+    return '0';
+  }
   return num.toLocaleString(locale);
 }
 
