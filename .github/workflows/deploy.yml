@@ -149,6 +149,9 @@ jobs:
             
             # Restart application with PM2
             echo "Current directory: $(pwd)"
+            echo "Files in current directory:"
+            ls -la
+            echo ""
             echo "PM2 status before restart:"
             pm2 list
             
