@@ -3,9 +3,15 @@
 Real-time мониторинг доступности amoCRM с уведомлениями в Mattermost и красивым дашбордом.
 
 > 📝 **История изменений:** [CHANGELOG.md](./CHANGELOG.md)  
-> 🏗️ **Архитектура:** [ARCHITECTURE.md](./ARCHITECTURE.md)  
-> 📂 **Структура проекта:** [PROJECT_STRUCTURE.md](./PROJECT_STRUCTURE.md)  
-> 📊 **Code Review:** [PROJECT_REVIEW.md](./PROJECT_REVIEW.md) | [Summary](./REVIEW_SUMMARY.md)
+> 🏗️ **Архитектура:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+
+## 🚀 Статус проекта
+
+- **Версия:** 1.5.1
+- **Статус:** ✅ Production Ready
+- **URL:** https://amohealth.duckdns.org
+- **Test Coverage:** 32.5% statements
+- **Рейтинг:** 9.2/10
 
 ## Возможности
 
@@ -16,22 +22,30 @@ Real-time мониторинг доступности amoCRM с уведомле
   - **HOOK** - проверка работы webhooks
   - **DP** - проверка Digital Pipeline
 - 📊 Real-time дашборд с графиками времени ответа
-- 📈 Статистика uptime и среднего времени ответа
+- 📈 15 метрик производительности (Uptime, MTTR, MTBF, Apdex Score и др.)
 - 🔔 Автоматические уведомления в Mattermost при падении/восстановлении
-- 📜 История инцидентов
+- 📜 История инцидентов с автоматическим отслеживанием
 - 💾 SQLite база данных для хранения данных
 - 🔄 Server-Sent Events (SSE) для real-time обновлений
+- 🔐 Автоматическое обновление OAuth токенов
 
 ## Требования
 
-- Node.js 16+ 
+- Node.js 18+ или 20+
 - npm или yarn
-- Доступ к amoCRM API (access token)
+- Доступ к amoCRM API (OAuth 2.0)
 - Mattermost webhook URL (опционально)
 
 ## Быстрый старт
 
-### 1. Установка зависимостей
+### 1. Клонирование репозитория
+
+```bash
+git clone <repository-url>
+cd "Health Check amoCRM"
+```
+
+### 2. Установка зависимостей
 
 ```bash
 # Установить зависимости для backend
@@ -43,26 +57,34 @@ npm install
 cd ..
 ```
 
-### 2. Конфигурация
+### 3. Конфигурация
 
-Создайте файл `.env` в корневой директории:
+Создайте файл `.env` в корневой директории на основе `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
-Заполните переменные окружения:
+Заполните обязательные переменные окружения:
 
 ```env
-# amoCRM Configuration
+# amoCRM OAuth Configuration
 AMOCRM_DOMAIN=your-domain.amocrm.ru
-AMOCRM_ACCESS_TOKEN=your_access_token_here
+AMOCRM_CLIENT_ID=your_client_id
+AMOCRM_CLIENT_SECRET=your_client_secret
+AMOCRM_REDIRECT_URI=https://your-domain.com/oauth/callback
+AMOCRM_ACCESS_TOKEN=your_initial_access_token
+AMOCRM_REFRESH_TOKEN=your_initial_refresh_token
 
-# Mattermost Webhook
-MATTERMOST_WEBHOOK_URL=https://your-mattermost.com/hooks/your_webhook_id
+# Mattermost Notifications
+MATTERMOST_WEBHOOK_URL=https://your-mattermost.com/hooks/webhook_id
+MATTERMOST_MENTIONS=@user1 @user2
+
+# Security (обязательно в production!)
+API_SECRET=generate_random_secret_here
 
 # Monitoring Settings
-CHECK_INTERVAL=30000          # Интервал проверок в миллисекундах (30 сек)
+CHECK_INTERVAL=60000          # Интервал проверок в миллисекундах (60 сек)
 TIMEOUT_THRESHOLD=10000       # Таймаут для определения падения (10 сек)
 
 # Server Configuration
@@ -70,7 +92,9 @@ PORT=3001
 NODE_ENV=development
 ```
 
-### 3. Запуск в режиме разработки
+> 💡 **Совет:** Используйте `openssl rand -hex 32` для генерации безопасного `API_SECRET`
+
+### 4. Запуск в режиме разработки
 
 ```bash
 # Терминал 1 - запуск backend
@@ -84,7 +108,7 @@ npm start
 Frontend будет доступен на `http://localhost:3000`  
 Backend API на `http://localhost:3001`
 
-### 4. Сборка для продакшена
+### 5. Сборка для продакшена
 
 ```bash
 # Собрать frontend

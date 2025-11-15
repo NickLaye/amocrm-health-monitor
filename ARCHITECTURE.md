@@ -54,18 +54,18 @@
 └───────┼───────────┼─────────────┼───────────┼───────────┼─────┘
         │           │             │           │           │
         └───────────┴─────────────┴───────────┴───────────┘
-                    Проверки каждые 30 секунд
+                    Проверки каждые 60 секунд (по умолчанию)
                             │
                             │
                     ┌───────▼────────┐
                     │  Monitor Loop  │
-                    │   (30 sec)     │
+                    │   (60 sec)     │
                     └────────────────┘
 ```
 
 ## Поток данных
 
-### 1. Мониторинг (каждые 30 секунд)
+### 1. Мониторинг (каждые 60 секунд по умолчанию)
 
 ```
 Monitor Service
@@ -112,7 +112,7 @@ User Browser
     │                 ▼
     └────────── Real-time обновления ──────────────┐
                                                     │
-         Каждые 30 сек новые данные ◄──────────────┘
+         Каждые 60 сек новые данные ◄──────────────┘
 ```
 
 ### 3. Уведомления
@@ -235,11 +235,26 @@ CREATE TABLE incidents (
 ### Переменные окружения
 
 ```env
+# amoCRM OAuth
 AMOCRM_DOMAIN=skillssales.amocrm.ru
+AMOCRM_CLIENT_ID=<client_id>
+AMOCRM_CLIENT_SECRET=<client_secret>
 AMOCRM_ACCESS_TOKEN=<JWT токен>
+AMOCRM_REFRESH_TOKEN=<refresh_token>
+AMOCRM_REDIRECT_URI=<callback_url>
+
+# Mattermost
 MATTERMOST_WEBHOOK_URL=https://mm-time.skyeng.tech/hooks/...
-CHECK_INTERVAL=30000            # 30 секунд
+MATTERMOST_MENTIONS=@user1 @user2
+
+# Security
+API_SECRET=<random_secret>
+
+# Monitoring
+CHECK_INTERVAL=60000            # 60 секунд
 TIMEOUT_THRESHOLD=10000         # 10 секунд
+
+# Server
 PORT=3001
 NODE_ENV=production
 ```
@@ -282,21 +297,53 @@ sqlite3 health_checks.db "SELECT COUNT(*) FROM health_checks;"
 
 ### Метрики
 
-- **Интервал проверок**: 30 секунд
-- **Проверок в час**: 120
-- **Проверок в день**: 2,880
-- **Проверок всех типов в день**: 14,400 (5 типов × 2,880)
+- **Интервал проверок**: 60 секунд (по умолчанию, настраивается)
+- **Проверок в час**: 60
+- **Проверок в день**: 1,440
+- **Проверок всех типов в день**: 7,200 (5 типов × 1,440)
 - **Хранение данных**: 30 дней
 - **Размер БД**: ~50-100 MB за 30 дней
 
+### Собираемые метрики (15 показателей)
+
+**Performance:**
+- Average Response Time - среднее время ответа
+- Min/Max/Median Response Time - минимальное, максимальное и медианное время
+- 95th Percentile - 95-й процентиль времени ответа
+
+**Reliability:**
+- Uptime Percentage - процент времени работы
+- Error Rate / Success Rate - процент ошибок и успехов
+- MTTR (Mean Time To Recovery) - среднее время восстановления
+- MTBF (Mean Time Between Failures) - среднее время между сбоями
+
+**User Experience:**
+- Apdex Score (Application Performance Index) - индекс производительности
+- Check Count / Total Checks - количество проверок
+
 ## Безопасность
 
-- ✅ HTTPS с Let's Encrypt
-- ✅ Access token в .env (не в коде)
-- ✅ Webhook URL скрыт
-- ✅ Nginx security headers
-- ✅ PM2 автоперезапуск при падении
-- ✅ Логирование всех действий
+### Реализованные меры
+
+- ✅ **HTTPS** с Let's Encrypt (автообновление сертификатов)
+- ✅ **Helmet.js** - security headers (XSS, clickjacking защита)
+- ✅ **CORS** - whitelist разрешенных доменов
+- ✅ **Rate Limiting** - 100 запросов в минуту с одного IP
+- ✅ **API_SECRET** - обязательная авторизация в production
+- ✅ **Environment Variables** - секреты не в коде
+- ✅ **Token Auto-refresh** - автоматическое обновление OAuth токенов
+- ✅ **Валидация входных данных** - все API endpoints
+- ✅ **Structured Logging** - аудит всех действий
+- ✅ **PM2 Isolation** - изоляция процесса
+
+### Рекомендации по безопасности
+
+1. Регулярно обновляйте зависимости: `npm audit fix`
+2. Используйте сильный `API_SECRET` (минимум 32 байта)
+3. Ограничьте доступ к серверу через firewall
+4. Настройте backup базы данных
+5. Мониторьте логи на подозрительную активность
+6. Используйте `openssl rand -hex 32` для генерации секретов
 
 ## Масштабирование
 
