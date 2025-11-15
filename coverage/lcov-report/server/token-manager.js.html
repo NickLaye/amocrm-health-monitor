@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">17.39% </span>
+                <span class="strong">19.71% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>12/69</span>
+                <span class='fraction'>14/71</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">17.39% </span>
+                <span class="strong">19.71% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>12/69</span>
+                <span class='fraction'>14/71</span>
             </div>
         
             
@@ -244,8 +244,14 @@
 <a name='L179'></a><a href='#L179'>179</a>
 <a name='L180'></a><a href='#L180'>180</a>
 <a name='L181'></a><a href='#L181'>181</a>
-<a name='L182'></a><a href='#L182'>182</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -428,6 +434,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { createLogger } = require('./utils/logger');
+&nbsp;
+const logger = createLogger('TokenManager');
 &nbsp;
 class TokenManager {
   constructor() {
@@ -456,7 +465,7 @@ class TokenManager {
 <span class="cstat-no" title="statement not covered" >        return this.currentTokens;</span>
       }
     } catch (error) {
-<span class="cstat-no" title="statement not covered" >      console.error('Error loading tokens:', error);</span>
+<span class="cstat-no" title="statement not covered" >      logger.error('Error loading tokens', error);</span>
     }
 <span class="cstat-no" title="statement not covered" >    return null;</span>
   }
@@ -468,9 +477,9 @@ class TokenManager {
 <span class="cstat-no" title="statement not covered" >    try {</span>
 <span class="cstat-no" title="statement not covered" >      fs.writeFileSync(this.tokensFile, JSON.stringify(tokens, null, 2));</span>
 <span class="cstat-no" title="statement not covered" >      this.currentTokens = tokens;</span>
-<span class="cstat-no" title="statement not covered" >      console.log('Tokens saved successfully');</span>
+<span class="cstat-no" title="statement not covered" >      logger.info('Tokens saved successfully');</span>
     } catch (error) {
-<span class="cstat-no" title="statement not covered" >      console.error('Error saving tokens:', error);</span>
+<span class="cstat-no" title="statement not covered" >      logger.error('Error saving tokens', error);</span>
 <span class="cstat-no" title="statement not covered" >      throw error;</span>
     }
   }
@@ -499,7 +508,7 @@ class TokenManager {
 <span class="cstat-no" title="statement not covered" >      throw new Error('No refresh token available');</span>
     }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    console.log('Refreshing access token...');</span>
+<span class="cstat-no" title="statement not covered" >    logger.info('Refreshing access token...');</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const response = <span class="cstat-no" title="statement not covered" >await axios.post(</span>
@@ -526,12 +535,12 @@ class TokenManager {
       // Сохраняем новые токены
 <span class="cstat-no" title="statement not covered" >      this.saveTokens(newTokens);</span>
       
-<span class="cstat-no" title="statement not covered" >      console.log('Access token refreshed successfully');</span>
-<span class="cstat-no" title="statement not covered" >      console.log(`New token expires at: ${new Date(newTokens.expires_at * 1000).toISOString()}`);</span>
+<span class="cstat-no" title="statement not covered" >      logger.info('Access token refreshed successfully');</span>
+<span class="cstat-no" title="statement not covered" >      logger.info(`New token expires at: ${new Date(newTokens.expires_at * 1000).toISOString()}`);</span>
       
 <span class="cstat-no" title="statement not covered" >      return newTokens.access_token;</span>
     } catch (error) {
-<span class="cstat-no" title="statement not covered" >      console.error('Error refreshing token:', error.response?.data || error.message);</span>
+<span class="cstat-no" title="statement not covered" >      logger.error('Error refreshing token', error.response?.data || error.message);</span>
 <span class="cstat-no" title="statement not covered" >      throw error;</span>
     }
   }
@@ -552,7 +561,7 @@ class TokenManager {
 &nbsp;
     // Если токен истек или скоро истечет - обновляем
 <span class="cstat-no" title="statement not covered" >    if (this.isTokenExpired()) {</span>
-<span class="cstat-no" title="statement not covered" >      console.log('Token expired or expiring soon, refreshing...');</span>
+<span class="cstat-no" title="statement not covered" >      logger.info('Token expired or expiring soon, refreshing...');</span>
 <span class="cstat-no" title="statement not covered" >      await this.refreshToken();</span>
     }
 &nbsp;
@@ -567,7 +576,7 @@ class TokenManager {
     const refreshToken = <span class="cstat-no" title="statement not covered" >process.env.AMOCRM_REFRESH_TOKEN;</span>
     
 <span class="cstat-no" title="statement not covered" >    if (!accessToken || !refreshToken) {</span>
-<span class="cstat-no" title="statement not covered" >      console.warn('AMOCRM_ACCESS_TOKEN or AMOCRM_REFRESH_TOKEN not found in environment');</span>
+<span class="cstat-no" title="statement not covered" >      logger.warn('AMOCRM_ACCESS_TOKEN or AMOCRM_REFRESH_TOKEN not found in environment');</span>
 <span class="cstat-no" title="statement not covered" >      return false;</span>
     }
 &nbsp;
@@ -580,7 +589,7 @@ class TokenManager {
     };
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    this.saveTokens(tokens);</span>
-<span class="cstat-no" title="statement not covered" >    console.log('Tokens initialized from environment variables');</span>
+<span class="cstat-no" title="statement not covered" >    logger.info('Tokens initialized from environment variables');</span>
 <span class="cstat-no" title="statement not covered" >    return true;</span>
   }
 &nbsp;
@@ -592,15 +601,15 @@ class TokenManager {
 <span class="cstat-no" title="statement not covered" >    setInterval(<span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      try {</span>
 <span class="cstat-no" title="statement not covered" >        if (this.isTokenExpired()) {</span>
-<span class="cstat-no" title="statement not covered" >          console.log('Auto-refreshing token...');</span>
+<span class="cstat-no" title="statement not covered" >          logger.info('Auto-refreshing token...');</span>
 <span class="cstat-no" title="statement not covered" >          await this.refreshToken();</span>
         }
       } catch (error) {
-<span class="cstat-no" title="statement not covered" >        console.error('Error in auto-refresh:', error);</span>
+<span class="cstat-no" title="statement not covered" >        logger.error('Error in auto-refresh', error);</span>
       }
     }, 60 * 60 * 1000); // каждый час
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    console.log('Token auto-refresh started (checking every hour)');</span>
+<span class="cstat-no" title="statement not covered" >    logger.info('Token auto-refresh started (checking every hour)');</span>
   }
 }
 &nbsp;
@@ -613,7 +622,7 @@ module.exports = new TokenManager();
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-15T10:09:24.024Z
+                at 2025-11-15T10:18:46.382Z
             </div>
         <script src="../prettify.js"></script>
         <script>

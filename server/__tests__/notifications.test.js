@@ -2,11 +2,7 @@
  * Unit tests for Notifications Service
  */
 
-const axios = require('axios');
 const { CHECK_TYPES } = require('../config/constants');
-
-// Mock axios
-jest.mock('axios');
 
 // Mock logger
 jest.mock('../utils/logger', () => ({
@@ -18,14 +14,22 @@ jest.mock('../utils/logger', () => ({
   })
 }));
 
+// Mock axios
+const mockAxiosPost = jest.fn();
+jest.mock('axios', () => ({
+  post: mockAxiosPost
+}));
+
 describe('NotificationService', () => {
   let notifications;
   const originalEnv = process.env;
 
   beforeEach(() => {
-    // Reset modules
-    jest.resetModules();
+    // Clear all mocks
     jest.clearAllMocks();
+    
+    // Setup mock axios response
+    mockAxiosPost.mockResolvedValue({ status: 200 });
     
     // Setup environment variables
     process.env = {
@@ -34,7 +38,8 @@ describe('NotificationService', () => {
       MATTERMOST_MENTIONS: '@user1 @user2'
     };
     
-    // Require notifications after env is set
+    // Reset modules and require notifications after env is set
+    jest.resetModules();
     notifications = require('../notifications');
   });
 
@@ -68,11 +73,9 @@ describe('NotificationService', () => {
 
   describe('sendDownNotification', () => {
     test('should send down notification with correct payload', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       await notifications.sendDownNotification(CHECK_TYPES.GET, 'Connection timeout');
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           channel: 'skypro-crm-alerts',
@@ -83,11 +86,9 @@ describe('NotificationService', () => {
     });
 
     test('should include error message in notification', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       await notifications.sendDownNotification(CHECK_TYPES.WEB, 'Server error 500');
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           text: expect.stringContaining('Server error 500')
@@ -96,11 +97,9 @@ describe('NotificationService', () => {
     });
 
     test('should include mentions in notification', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       await notifications.sendDownNotification(CHECK_TYPES.POST, 'API error');
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           text: expect.stringContaining('@user1 @user2')
@@ -109,15 +108,13 @@ describe('NotificationService', () => {
     });
 
     test('should debounce duplicate notifications within 5 minutes', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       // First notification
       await notifications.sendDownNotification(CHECK_TYPES.GET, 'Error 1');
-      expect(axios.post).toHaveBeenCalledTimes(1);
+      expect(mockAxiosPost).toHaveBeenCalledTimes(1);
 
       // Second notification within 5 minutes should be skipped
       await notifications.sendDownNotification(CHECK_TYPES.GET, 'Error 2');
-      expect(axios.post).toHaveBeenCalledTimes(1);
+      expect(mockAxiosPost).toHaveBeenCalledTimes(1);
     });
 
     test('should not send notification if webhook URL is not configured', async () => {
@@ -127,11 +124,11 @@ describe('NotificationService', () => {
 
       await notificationsNoWebhook.sendDownNotification(CHECK_TYPES.GET, 'Error');
 
-      expect(axios.post).not.toHaveBeenCalled();
+      expect(mockAxiosPost).not.toHaveBeenCalled();
     });
 
     test('should handle axios errors gracefully', async () => {
-      axios.post.mockRejectedValue(new Error('Network error'));
+      mockAxiosPost.mockRejectedValue(new Error('Network error'));
 
       await expect(
         notifications.sendDownNotification(CHECK_TYPES.GET, 'Error')
@@ -141,12 +138,10 @@ describe('NotificationService', () => {
 
   describe('sendUpNotification', () => {
     test('should send up notification with correct payload', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       const downSince = Date.now() - 5 * 60 * 1000; // 5 minutes ago
       await notifications.sendUpNotification(CHECK_TYPES.GET, downSince);
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           channel: 'skypro-crm-alerts',
@@ -157,12 +152,10 @@ describe('NotificationService', () => {
     });
 
     test('should include downtime duration in notification', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       const downSince = Date.now() - 3 * 60 * 1000; // 3 minutes ago
       await notifications.sendUpNotification(CHECK_TYPES.WEB, downSince);
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           text: expect.stringContaining('3 мин')
@@ -171,12 +164,10 @@ describe('NotificationService', () => {
     });
 
     test('should format downtime in seconds if less than 1 minute', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       const downSince = Date.now() - 45 * 1000; // 45 seconds ago
       await notifications.sendUpNotification(CHECK_TYPES.POST, downSince);
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           text: expect.stringContaining('45 сек')
@@ -191,11 +182,11 @@ describe('NotificationService', () => {
 
       await notificationsNoWebhook.sendUpNotification(CHECK_TYPES.GET, Date.now());
 
-      expect(axios.post).not.toHaveBeenCalled();
+      expect(mockAxiosPost).not.toHaveBeenCalled();
     });
 
     test('should handle axios errors gracefully', async () => {
-      axios.post.mockRejectedValue(new Error('Network error'));
+      mockAxiosPost.mockRejectedValue(new Error('Network error'));
 
       await expect(
         notifications.sendUpNotification(CHECK_TYPES.GET, Date.now())
@@ -205,8 +196,6 @@ describe('NotificationService', () => {
 
   describe('sendSummaryNotification', () => {
     test('should send summary notification with stats', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       const stats = {
         [CHECK_TYPES.GET]: { uptime: 99.5, avgTime: 450 },
         [CHECK_TYPES.POST]: { uptime: 98.0, avgTime: 520 },
@@ -215,7 +204,7 @@ describe('NotificationService', () => {
 
       await notifications.sendSummaryNotification(stats);
 
-      expect(axios.post).toHaveBeenCalledWith(
+      expect(mockAxiosPost).toHaveBeenCalledWith(
         'https://test.mattermost.com/hooks/test123',
         expect.objectContaining({
           channel: 'skypro-crm-alerts',
@@ -226,8 +215,6 @@ describe('NotificationService', () => {
     });
 
     test('should include all check types in summary', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       const stats = {
         [CHECK_TYPES.GET]: { uptime: 99.5, avgTime: 450 },
         [CHECK_TYPES.POST]: { uptime: 98.0, avgTime: 520 }
@@ -235,7 +222,7 @@ describe('NotificationService', () => {
 
       await notifications.sendSummaryNotification(stats);
 
-      const call = axios.post.mock.calls[0][1];
+      const call = mockAxiosPost.mock.calls[0][1];
       expect(call.text).toContain('API (GET)');
       expect(call.text).toContain('API (POST)');
     });
@@ -247,11 +234,11 @@ describe('NotificationService', () => {
 
       await notificationsNoWebhook.sendSummaryNotification({});
 
-      expect(axios.post).not.toHaveBeenCalled();
+      expect(mockAxiosPost).not.toHaveBeenCalled();
     });
 
     test('should handle axios errors gracefully', async () => {
-      axios.post.mockRejectedValue(new Error('Network error'));
+      mockAxiosPost.mockRejectedValue(new Error('Network error'));
 
       await expect(
         notifications.sendSummaryNotification({})
@@ -261,22 +248,20 @@ describe('NotificationService', () => {
 
   describe('Check Type Labels', () => {
     test('should use correct label for each check type', async () => {
-      axios.post.mockResolvedValue({ status: 200 });
-
       await notifications.sendDownNotification(CHECK_TYPES.GET, 'Error');
-      expect(axios.post.mock.calls[0][1].username).toContain('API (GET)');
+      expect(mockAxiosPost.mock.calls[0][1].username).toContain('API (GET)');
 
       await notifications.sendDownNotification(CHECK_TYPES.POST, 'Error');
-      expect(axios.post.mock.calls[1][1].username).toContain('API (POST)');
+      expect(mockAxiosPost.mock.calls[1][1].username).toContain('API (POST)');
 
       await notifications.sendDownNotification(CHECK_TYPES.WEB, 'Error');
-      expect(axios.post.mock.calls[2][1].username).toContain('Веб-интерфейс');
+      expect(mockAxiosPost.mock.calls[2][1].username).toContain('Веб-интерфейс');
 
       await notifications.sendDownNotification(CHECK_TYPES.HOOK, 'Error');
-      expect(axios.post.mock.calls[3][1].username).toContain('Вебхуки');
+      expect(mockAxiosPost.mock.calls[3][1].username).toContain('Вебхуки');
 
       await notifications.sendDownNotification(CHECK_TYPES.DP, 'Error');
-      expect(axios.post.mock.calls[4][1].username).toContain('Digital Pipeline');
+      expect(mockAxiosPost.mock.calls[4][1].username).toContain('Digital Pipeline');
     });
   });
 });

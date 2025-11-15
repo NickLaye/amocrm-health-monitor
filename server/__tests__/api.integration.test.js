@@ -29,6 +29,14 @@ describe('API Integration Tests', () => {
     app = express();
     app.use(express.json());
     app.use('/api', apiRouter);
+    
+    // Error handler middleware
+    app.use((err, req, res, next) => {
+      res.status(err.status || 500).json({
+        success: false,
+        error: err.message || 'Internal Server Error'
+      });
+    });
   });
 
   beforeEach(() => {
