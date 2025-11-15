@@ -226,9 +226,11 @@
 /* All Services Grid - 5 cards in one row */
 .services-grid-all {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr)); /* Гарантируем равную ширину */
   gap: 16px;
   margin-bottom: 24px;
+  align-items: stretch; /* Растягиваем карточки по высоте */
+  width: 100%; /* Занимаем всю доступную ширину */
 }
 
 .service-card {
@@ -243,6 +245,10 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%; /* Гарантируем что карточка занимает всю ширину ячейки */
+  box-sizing: border-box; /* Учитываем padding и border в ширине */
+  overflow: hidden; /* Предотвращаем переполнение контента */
+  min-width: 0; /* Позволяем grid правильно сжимать карточки */
 }
 
 .service-card:hover {
@@ -310,6 +316,8 @@
   flex-direction: column;
   gap: 10px;
   flex: 1;
+  min-width: 0; /* Позволяем flexbox правильно работать внутри grid */
+  overflow: hidden; /* Предотвращаем переполнение */
 }
 
 .detail-item {
@@ -418,7 +426,7 @@
 
 @media (max-width: 1400px) {
   .services-grid-all {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr)); /* Гарантируем равную ширину */
   }
 }
 
@@ -429,7 +437,7 @@
   }
   
   .services-grid-all {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* Гарантируем равную ширину */
   }
 }
 
@@ -450,7 +458,7 @@
   }
   
   .services-grid-all {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr); /* Гарантируем равную ширину */
   }
 
   .avg-times {
@@ -468,8 +476,10 @@
   padding-top: 16px;
   border-top: 2px solid #e2e8f0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr)); /* Гарантируем равную ширину секций */
   gap: 10px;
+  width: 100%; /* Занимаем всю доступную ширину */
+  min-width: 0; /* Позволяем grid правильно работать */
 }
 
 .metrics-section {
@@ -558,7 +568,7 @@
 /* Responsive adjustments for detailed metrics */
 @media (max-width: 1400px) {
   .detailed-metrics {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* Гарантируем равную ширину */
   }
   
   .metrics-section:last-child {
@@ -568,7 +578,7 @@
 
 @media (max-width: 1024px) {
   .detailed-metrics {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr)); /* Гарантируем равную ширину */
     gap: 8px;
   }
   
@@ -583,7 +593,7 @@
 
 @media (max-width: 768px) {
   .detailed-metrics {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr); /* Гарантируем равную ширину */
     gap: 8px;
   }
   
