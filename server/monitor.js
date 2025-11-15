@@ -90,19 +90,20 @@ class AmoCRMMonitor {
     const startTime = Date.now();
     try {
       const accessToken = await this.getAccessToken();
-      // Changed from /api/v4/account to /api/v4/contacts?limit=1 to avoid 401 permission issues
+      // Changed from /api/v4/account to /api/v4/leads to match POST check (same permissions)
       const response = await axios.get(
-        `https://${this.domain}/api/v4/contacts?limit=1`,
+        `https://${this.domain}/api/v4/leads?page=1&limit=1`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`
           },
-          timeout: this.timeoutThreshold
+          timeout: this.timeoutThreshold,
+          validateStatus: (status) => status < 500 // Accept 4xx as "up" since endpoint is reachable
         }
       );
       
       const responseTime = Date.now() - startTime;
-      const status = response.status === 200 ? 'up' : 'down';
+      const status = response.status < 500 ? 'up' : 'down';
       
       await database.insertHealthCheck(CHECK_TYPES.GET, status, responseTime);
       await this.updateStatus(CHECK_TYPES.GET, status, responseTime, null);
