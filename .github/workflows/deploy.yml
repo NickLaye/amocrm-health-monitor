@@ -129,7 +129,7 @@ jobs:
             cd current
             
             # Install production dependencies
-            npm ci --production
+            npm install --production
             
             # Copy .env file (should exist on server)
             if [ -f "../.env" ]; then
