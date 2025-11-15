@@ -234,13 +234,14 @@
 .service-card {
   background: white !important;
   border-radius: 12px;
-  padding: 20px 24px;
-  min-height: 180px;
+  padding: 18px 20px;
+  min-height: 160px;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
   border-left: 4px solid #cbd5e0;
   transition: all 0.2s ease;
   display: flex;
   flex-direction: column;
+  height: 100%;
 }
 
 .service-card:hover {
@@ -314,6 +315,7 @@
   align-items: center;
   padding: 6px 0;
   border-bottom: 1px solid #f7fafc;
+  gap: 12px;
 }
 
 .detail-item:last-child {
@@ -322,15 +324,18 @@
 
 .detail-label {
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #718096;
-  opacity: 0.85;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .detail-value {
-  font-size: 1.5rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #1a202c;
+  text-align: right;
+  flex-grow: 1;
 }
 
 /* Special styling for response time */
@@ -459,32 +464,36 @@
 .detailed-metrics {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 2px solid #e2e8f0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
 }
 
 .metrics-section {
-  background: #f7fafc;
-  border-radius: 12px;
-  padding: 14px 16px;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
 }
 
 .metrics-title {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #4a5568;
-  margin: 0 0 12px 0;
+  margin: 0 0 10px 0;
   display: flex;
   align-items: center;
   gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .detailed-metrics .detail-item {
-  margin-bottom: 8px;
-  padding: 6px 0;
+  margin-bottom: 6px;
+  padding: 5px 0;
   border-bottom: 1px solid #e2e8f0;
+  gap: 8px;
 }
 
 .detailed-metrics .detail-item:last-child {
@@ -493,25 +502,50 @@
 }
 
 .detailed-metrics .detail-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #718096;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .detailed-metrics .detail-value {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #1a202c;
   font-weight: 700;
+  text-align: right;
+}
+
+/* Make the last section (Apdex) span full width if it's alone */
+.metrics-section:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 
 /* Responsive adjustments for detailed metrics */
+@media (max-width: 1400px) {
+  .detailed-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .detailed-metrics {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 10px;
   }
   
   .metrics-section {
-    padding: 12px 14px;
+    padding: 10px 12px;
+  }
+  
+  .metrics-title {
+    font-size: 0.75rem;
+  }
+  
+  .detailed-metrics .detail-label {
+    font-size: 0.75rem;
+  }
+  
+  .detailed-metrics .detail-value {
+    font-size: 0.8rem;
   }
 }
