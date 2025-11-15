@@ -12,3 +12,4 @@ dist/
 .docs-structure.txt
 data/
 
+client/.env

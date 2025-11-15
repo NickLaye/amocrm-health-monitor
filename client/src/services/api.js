@@ -67,7 +67,14 @@ class ApiService {
 
   // Subscribe to real-time updates via SSE
   subscribeToUpdates(callback) {
-    const eventSource = new EventSource(`${API_BASE_URL}/stream`);
+    // Get API_SECRET from environment (for SSE authentication)
+    // In production, token is passed via query param since EventSource doesn't support headers
+    const apiSecret = process.env.REACT_APP_API_SECRET || '';
+    const streamUrl = apiSecret 
+      ? `${API_BASE_URL}/stream?token=${encodeURIComponent(apiSecret)}`
+      : `${API_BASE_URL}/stream`;
+    
+    const eventSource = new EventSource(streamUrl);
 
     eventSource.onmessage = (event) => {
       try {
