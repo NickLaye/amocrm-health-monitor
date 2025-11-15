@@ -138,6 +138,14 @@ jobs:
               echo "Warning: .env file not found"
             fi
             
+            # Update Nginx configuration if changed
+            if [ -f "nginx.conf" ]; then
+              sudo cp nginx.conf /etc/nginx/sites-available/amohealth
+              sudo ln -sf /etc/nginx/sites-available/amohealth /etc/nginx/sites-enabled/
+              sudo nginx -t && sudo systemctl reload nginx
+              echo "✓ Nginx configuration updated"
+            fi
+            
             # Restart application with PM2
             pm2 restart amocrm-health-monitor || pm2 start server/index.js --name amocrm-health-monitor
             pm2 save
