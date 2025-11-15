@@ -6,11 +6,12 @@ import './AverageResponseTime.css';
 /**
  * AverageResponseTimeCard - Отображает среднее время ответа для одного типа запросов
  * @param {string} label - Метка (GET, POST)
- * @param {number} responseTime - Среднее время ответа в секундах
+ * @param {number} responseTime - Среднее время ответа в миллисекундах
  */
 const AverageResponseTimeCard = React.memo(({ label, responseTime }) => {
   const formattedTime = useMemo(() => {
-    return formatResponseTime(responseTime * 1000) || '0.000';
+    // responseTime comes in milliseconds from API, formatResponseTime expects milliseconds
+    return formatResponseTime(responseTime) || '0.000';
   }, [responseTime]);
 
   return (
