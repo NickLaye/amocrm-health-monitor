@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>12/16</span>
+                <span class='fraction'>0/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">60% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/15</span>
+                <span class='fraction'>0/15</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.14% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/7</span>
+                <span class='fraction'>0/7</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>12/16</span>
+                <span class='fraction'>0/16</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -157,7 +157,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -183,7 +183,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -193,8 +193,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -204,7 +204,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -220,19 +220,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">21x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -246,7 +246,7 @@
  * Common functions for HTTP operations
  */
 &nbsp;
-const { HTTP_STATUS } = require('../config/constants');
+const { HTTP_STATUS } = <span class="cstat-no" title="statement not covered" >require('../config/constants');</span>
 &nbsp;
 /**
  * Checks if HTTP status code indicates success
@@ -271,8 +271,8 @@ function <span class="fstat-no" title="function not covered" >isClientError(</sp
  * @param {number} statusCode - HTTP status code
  * @returns {boolean} True if status is server error
  */
-function isServerError(statusCode) {
-  return statusCode &gt;= HTTP_STATUS.SERVER_ERROR_MIN;
+function <span class="fstat-no" title="function not covered" >isServerError(</span>statusCode) {
+<span class="cstat-no" title="statement not covered" >  return statusCode &gt;= HTTP_STATUS.SERVER_ERROR_MIN;</span>
 }
 &nbsp;
 /**
@@ -281,9 +281,9 @@ function isServerError(statusCode) {
  * @param {string} path - API path
  * @returns {string} Complete URL
  */
-function buildAmoCRMUrl(domain, path) {
-  const basePath = path.startsWith('/') ? path : `/${path}`;
-  return `https://${domain}${basePath}`;
+function <span class="fstat-no" title="function not covered" >buildAmoCRMUrl(</span>domain, path) {
+  const basePath = <span class="cstat-no" title="statement not covered" >path.startsWith('/') ? path : `/${path}`;</span>
+<span class="cstat-no" title="statement not covered" >  return `https://${domain}${basePath}`;</span>
 }
 &nbsp;
 /**
@@ -292,8 +292,8 @@ function buildAmoCRMUrl(domain, path) {
  * @param {number} timeout - Request timeout in ms
  * @returns {Object} Axios config object
  */
-function createAuthConfig(accessToken, timeout = <span class="branch-0 cbranch-no" title="branch not covered" >10000)</span> {
-  return {
+function <span class="fstat-no" title="function not covered" >createAuthConfig(</span>accessToken, timeout = <span class="branch-0 cbranch-no" title="branch not covered" >10000)</span> {
+<span class="cstat-no" title="statement not covered" >  return {</span>
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json'
@@ -308,20 +308,20 @@ function createAuthConfig(accessToken, timeout = <span class="branch-0 cbranch-n
  * @param {Error} error - Axios error object
  * @returns {string} Error message
  */
-function extractErrorMessage(error) {
-  if (error.response) {
-    return `HTTP ${error.response.status}: ${error.response.statusText}`;
+function <span class="fstat-no" title="function not covered" >extractErrorMessage(</span>error) {
+<span class="cstat-no" title="statement not covered" >  if (error.response) {</span>
+<span class="cstat-no" title="statement not covered" >    return `HTTP ${error.response.status}: ${error.response.statusText}`;</span>
   }
-  if (error.code === 'ECONNABORTED') {
-    return 'Request timeout';
+<span class="cstat-no" title="statement not covered" >  if (error.code === 'ECONNABORTED') {</span>
+<span class="cstat-no" title="statement not covered" >    return 'Request timeout';</span>
   }
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (error.code === 'ENOTFOUND') {
+<span class="cstat-no" title="statement not covered" >  if (error.code === 'ENOTFOUND') {</span>
 <span class="cstat-no" title="statement not covered" >    return 'Domain not found';</span>
   }
-  return error.message || 'Unknown error';
+<span class="cstat-no" title="statement not covered" >  return error.message || 'Unknown error';</span>
 }
 &nbsp;
-module.exports = {
+<span class="cstat-no" title="statement not covered" >module.exports = {</span>
   isSuccessStatus,
   isClientError,
   isServerError,
@@ -337,7 +337,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-14T16:30:48.861Z
+                at 2025-11-15T10:06:42.332Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

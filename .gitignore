@@ -2,6 +2,7 @@ node_modules/
 .env
 *.db
 *.log
+logs/
 client/build/
 client/node_modules/
 .DS_Store
