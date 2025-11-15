@@ -17,6 +17,19 @@ const sseClients = [];
 const SSE_HEARTBEAT_INTERVAL = 30000;
 let heartbeatIntervalId = null;
 
+// Get public configuration for frontend
+router.get('/config', asyncHandler(async (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      apiSecret: process.env.API_SECRET || '',
+      checkInterval: parseInt(process.env.CHECK_INTERVAL) || 60000,
+      domain: process.env.AMOCRM_DOMAIN || ''
+    },
+    timestamp: Date.now()
+  });
+}));
+
 // Get current status of all services
 router.get('/status', asyncHandler(async (req, res) => {
   const status = monitor.getStatus();
