@@ -69,15 +69,16 @@ class TokenManager {
     this.logger.info('Refreshing access token...');
 
     try {
+      const params = new URLSearchParams();
+      params.append('client_id', this.clientIdValue);
+      params.append('client_secret', this.clientSecret);
+      params.append('grant_type', 'refresh_token');
+      params.append('refresh_token', this.currentTokens.refresh_token);
+      params.append('redirect_uri', this.redirectUri);
+
       const response = await axios.post(
         `https://${this.domain}/oauth2/access_token`,
-        {
-          client_id: this.clientIdValue,
-          client_secret: this.clientSecret,
-          grant_type: 'refresh_token',
-          refresh_token: this.currentTokens.refresh_token,
-          redirect_uri: this.redirectUri,
-        },
+        params.toString(),
         {
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
