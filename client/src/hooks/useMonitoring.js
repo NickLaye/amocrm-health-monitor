@@ -5,7 +5,32 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import { handleApiError } from '../utils/api-helpers';
 
+const CLIENT_STORAGE_KEY = 'amo-monitor.clientId';
+
+const getClientIdFromUrl = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const params = new URLSearchParams(window.location.search);
+  return params.get('clientId');
+};
+
+const syncClientIdToUrl = (clientId) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (clientId) {
+    url.searchParams.set('clientId', clientId);
+  } else {
+    url.searchParams.delete('clientId');
+  }
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+};
+
 export function useMonitoring() {
+  const [clients, setClients] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState(null);
   const [status, setStatus] = useState(null);
   const [stats, setStats] = useState(null);
   const [incidents, setIncidents] = useState([]);
@@ -14,14 +39,15 @@ export function useMonitoring() {
   const [lastUpdate, setLastUpdate] = useState(null);
   const eventSourceRef = useRef(null);
 
-  // Fetch all monitoring data
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (clientId) => {
+    if (!clientId) return;
+
     try {
       setError(null);
       const [statusData, statsData, incidentsData] = await Promise.all([
-        api.getStatus(),
-        api.getStats(24),
-        api.getIncidents(20)
+        api.getStatus(clientId),
+        api.getStats(24, clientId),
+        api.getIncidents(20, clientId)
       ]);
 
       setStatus(statusData);
@@ -36,28 +62,91 @@ export function useMonitoring() {
     }
   }, []);
 
-  // Setup SSE for real-time updates
+  const getInitialClientId = useCallback((clientList) => {
+    if (!clientList.length) {
+      return null;
+    }
+    const urlClientId = getClientIdFromUrl();
+    if (urlClientId && clientList.some(client => client.id === urlClientId)) {
+      return urlClientId;
+    }
+    if (typeof window !== 'undefined') {
+      const storedClientId = window.localStorage.getItem(CLIENT_STORAGE_KEY);
+      if (storedClientId && clientList.some(client => client.id === storedClientId)) {
+        return storedClientId;
+      }
+    }
+    return clientList[0]?.id || null;
+  }, []);
+
+  const loadClients = useCallback(async () => {
+    try {
+      const clientList = await api.getClients();
+      setClients(clientList);
+
+      if (!clientList.length) {
+        setError('Не найдено ни одного клиента');
+        setLoading(false);
+        return;
+      }
+
+      const initialClient = getInitialClientId(clientList);
+
+      setSelectedClientId(initialClient);
+      if (!initialClient) {
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+      setError(handleApiError(err));
+      setLoading(false);
+    }
+  }, [getInitialClientId]);
+
+  useEffect(() => {
+    loadClients();
+  }, [loadClients]);
+
   useEffect(() => {
     let mounted = true;
-    
+    if (!selectedClientId) {
+      return () => {
+        mounted = false;
+      };
+    }
+
     const setupSSE = async () => {
       try {
         const eventSource = await api.subscribeToUpdates(
-          (checkType, data) => {
-            if (mounted) {
-              setStatus(prevStatus => ({
-                ...prevStatus,
-                [checkType]: data
-              }));
-              setLastUpdate(new Date());
+          selectedClientId,
+          (checkType, data, clientIdFromEvent) => {
+            if (!mounted) return;
+            if (clientIdFromEvent && clientIdFromEvent !== selectedClientId) {
+              return;
             }
+
+            setStatus(prevStatus => ({
+              ...(prevStatus || {}),
+              [checkType]: data
+            }));
+            setLastUpdate(new Date());
+
+            setTimeout(async () => {
+              try {
+                const incidentsData = await api.getIncidents(20, selectedClientId);
+                if (mounted) {
+                  setIncidents(incidentsData);
+                }
+              } catch (refreshError) {
+                console.error('Error refreshing incidents after status change:', refreshError);
+              }
+            }, 1000);
           }
         );
-        
+
         if (mounted) {
           eventSourceRef.current = eventSource;
         } else {
-          // If component unmounted during async operation, close connection
           eventSource.close();
         }
       } catch (err) {
@@ -67,62 +156,87 @@ export function useMonitoring() {
         }
       }
     };
-    
+
     setupSSE();
 
     return () => {
       mounted = false;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
+        eventSourceRef.current = null;
       }
     };
+  }, [selectedClientId]);
+
+  useEffect(() => {
+    if (!selectedClientId) {
+      return;
+    }
+
+    setLoading(true);
+    fetchData(selectedClientId);
+    const interval = setInterval(() => fetchData(selectedClientId), 30000);
+
+    return () => clearInterval(interval);
+  }, [selectedClientId, fetchData]);
+
+  useEffect(() => {
+    if (!selectedClientId) {
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(CLIENT_STORAGE_KEY, selectedClientId);
+    }
+    syncClientIdToUrl(selectedClientId);
+  }, [selectedClientId]);
+
+  const refresh = useCallback(() => {
+    if (!selectedClientId) return;
+    setLoading(true);
+    fetchData(selectedClientId);
+  }, [fetchData, selectedClientId]);
+
+  const changeClient = useCallback((clientId) => {
+    setSelectedClientId(clientId);
   }, []);
 
-  // Fetch initial data
-  useEffect(() => {
-    fetchData();
-    
-    // Fallback polling every 30 seconds
-    const interval = setInterval(fetchData, 30000);
-    
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  // Manual refresh function
-  const refresh = useCallback(() => {
-    setLoading(true);
-    fetchData();
-  }, [fetchData]);
-
   return {
+    clients,
+    selectedClientId,
     status,
     stats,
     incidents,
     loading,
     error,
     lastUpdate,
-    refresh
+    refresh,
+    changeClient
   };
 }
 
 /**
  * Custom hook for fetching history data
  */
-export function useHistoryData(initialPeriod = 24) {
+export function useHistoryData(initialPeriod = 24, clientId) {
   const [historyData, setHistoryData] = useState({});
   const [period, setPeriod] = useState(initialPeriod);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!clientId) {
+      setHistoryData({});
+      setLoading(false);
+      return;
+    }
+
     const fetchHistory = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const data = await api.getHistory(null, period);
-        
-        // Group data by check type
+
+        const data = await api.getHistory(null, period, clientId);
+
         const grouped = {};
         data.forEach(check => {
           if (!grouped[check.check_type]) {
@@ -130,7 +244,7 @@ export function useHistoryData(initialPeriod = 24) {
           }
           grouped[check.check_type].push(check);
         });
-        
+
         setHistoryData(grouped);
         setLoading(false);
       } catch (err) {
@@ -141,7 +255,7 @@ export function useHistoryData(initialPeriod = 24) {
     };
 
     fetchHistory();
-  }, [period]);
+  }, [period, clientId]);
 
   return {
     historyData,

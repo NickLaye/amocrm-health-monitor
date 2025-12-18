@@ -67,13 +67,22 @@ function createAuthConfig(accessToken, timeout = 10000) {
  */
 function extractErrorMessage(error) {
   if (error.response) {
-    return `HTTP ${error.response.status}: ${error.response.statusText}`;
+    const status = error.response.status;
+    const statusText = error.response.statusText
+      || error.response.data?.error
+      || error.response.data?.message
+      || error.message
+      || null;
+    return statusText ? `HTTP ${status}: ${statusText}` : `HTTP ${status}`;
   }
   if (error.code === 'ECONNABORTED') {
     return 'Request timeout';
   }
   if (error.code === 'ENOTFOUND') {
-    return 'Domain not found';
+    return 'ENOTFOUND (Domain not found)';
+  }
+  if (error.code === 'ETIMEDOUT') {
+    return 'ETIMEDOUT (Connection timed out)';
   }
   return error.message || 'Unknown error';
 }

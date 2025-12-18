@@ -4,6 +4,12 @@
 
 cd "$(dirname "$0")/client/src"
 
+if [ ! -f "App.old.jsx" ] && [ ! -f "App.new.jsx" ] && [ ! -f "App.integrated.jsx" ]; then
+    echo "✅ amoCRM Health Monitor v2.0 работает в едином тёмном дизайне."
+    echo "Переключатель больше не нужен — актуальный интерфейс уже активен."
+    exit 0
+fi
+
 show_help() {
     echo "🎨 Переключатель дизайна amoCRM Health Monitor"
     echo ""
@@ -23,21 +29,21 @@ show_status() {
     echo "📊 Текущий статус:"
     echo ""
     
-    if [ -f "App.old.js" ]; then
-        echo "✅ Старый дизайн сохранен как App.old.js"
+    if [ -f "App.old.jsx" ]; then
+        echo "✅ Старый дизайн сохранен как App.old.jsx"
     fi
     
-    if [ -f "App.new.js" ]; then
-        echo "✅ Новый дизайн (demo) доступен как App.new.js"
+    if [ -f "App.new.jsx" ]; then
+        echo "✅ Новый дизайн (demo) доступен как App.new.jsx"
     fi
     
-    if [ -f "App.integrated.js" ]; then
-        echo "✅ Новый дизайн (с данными) доступен как App.integrated.js"
+    if [ -f "App.integrated.jsx" ]; then
+        echo "✅ Новый дизайн (с данными) доступен как App.integrated.jsx"
     fi
     
     echo ""
-    echo "📝 Активный App.js:"
-    head -n 10 App.js | grep -E "import|amoCRM|HealthMonitor"
+    echo "📝 Активный App.jsx:"
+    head -n 10 App.jsx | grep -E "import|amoCRM|HealthMonitor"
 }
 
 case "$1" in
@@ -45,18 +51,18 @@ case "$1" in
         echo "🔄 Переключение на новый дизайн с тестовыми данными..."
         
         # Создаем резервную копию, если её нет
-        if [ ! -f "App.old.js" ] && [ -f "App.js" ]; then
-            cp App.js App.old.js
-            echo "💾 Создана резервная копия: App.old.js"
+        if [ ! -f "App.old.jsx" ] && [ -f "App.jsx" ]; then
+            cp App.jsx App.old.jsx
+            echo "💾 Создана резервная копия: App.old.jsx"
         fi
         
         # Переключаемся на демо версию
-        if [ -f "App.new.js" ]; then
-            cp App.new.js App.js
+        if [ -f "App.new.jsx" ]; then
+            cp App.new.jsx App.jsx
             echo "✅ Активирован новый дизайн (тестовые данные)"
-            echo "🚀 Запустите: cd client && npm start"
+            echo "🚀 Запустите: cd client && npm run dev"
         else
-            echo "❌ Файл App.new.js не найден"
+            echo "❌ Файл App.new.jsx не найден"
             exit 1
         fi
         ;;
@@ -65,18 +71,18 @@ case "$1" in
         echo "🔄 Переключение на новый дизайн с реальными данными..."
         
         # Создаем резервную копию, если её нет
-        if [ ! -f "App.old.js" ] && [ -f "App.js" ]; then
-            cp App.js App.old.js
-            echo "💾 Создана резервная копия: App.old.js"
+        if [ ! -f "App.old.jsx" ] && [ -f "App.jsx" ]; then
+            cp App.jsx App.old.jsx
+            echo "💾 Создана резервная копия: App.old.jsx"
         fi
         
         # Переключаемся на интегрированную версию
-        if [ -f "App.integrated.js" ]; then
-            cp App.integrated.js App.js
+        if [ -f "App.integrated.jsx" ]; then
+            cp App.integrated.jsx App.jsx
             echo "✅ Активирован новый дизайн (реальные данные)"
-            echo "🚀 Запустите: cd client && npm start"
+            echo "🚀 Запустите: cd client && npm run dev"
         else
-            echo "❌ Файл App.integrated.js не найден"
+            echo "❌ Файл App.integrated.jsx не найден"
             exit 1
         fi
         ;;
@@ -84,12 +90,12 @@ case "$1" in
     "old")
         echo "🔄 Возврат к старому дизайну..."
         
-        if [ -f "App.old.js" ]; then
-            cp App.old.js App.js
+        if [ -f "App.old.jsx" ]; then
+            cp App.old.jsx App.jsx
             echo "✅ Восстановлен старый дизайн"
-            echo "🚀 Запустите: cd client && npm start"
+            echo "🚀 Запустите: cd client && npm run dev"
         else
-            echo "❌ Резервная копия App.old.js не найдена"
+            echo "❌ Резервная копия App.old.jsx не найдена"
             exit 1
         fi
         ;;

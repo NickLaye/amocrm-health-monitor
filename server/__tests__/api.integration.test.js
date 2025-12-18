@@ -7,7 +7,15 @@ const express = require('express');
 
 // Mock dependencies before requiring modules
 jest.mock('../database');
-jest.mock('../monitor');
+jest.mock('../monitor-orchestrator', () => ({
+  getStatus: jest.fn(),
+  getLastCheckTime: jest.fn(),
+  isHealthy: jest.fn(),
+  handleWebhookEvent: jest.fn(),
+  addListener: jest.fn(),
+  start: jest.fn(),
+  stop: jest.fn()
+}));
 jest.mock('../utils/logger', () => ({
   createLogger: () => ({
     info: jest.fn(),
@@ -17,9 +25,12 @@ jest.mock('../utils/logger', () => ({
   })
 }));
 
+process.env.AMOCRM_DOMAIN = 'test.amocrm.ru';
+
 const database = require('../database');
-const monitor = require('../monitor');
+const monitor = require('../monitor-orchestrator');
 const apiRouter = require('../api');
+const { DEFAULT_CLIENT_ID } = require('../config/constants');
 
 describe('API Integration Tests', () => {
   let app;
@@ -132,7 +143,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(database.getHealthChecks).toHaveBeenCalledWith(null, 12);
+      expect(database.getHealthChecks).toHaveBeenCalledWith(null, 12, DEFAULT_CLIENT_ID);
     });
 
     test('should accept checkType parameter', async () => {
@@ -141,7 +152,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(database.getHealthChecks).toHaveBeenCalledWith('GET', 24);
+      expect(database.getHealthChecks).toHaveBeenCalledWith('GET', 24, DEFAULT_CLIENT_ID);
     });
 
     test('should reject invalid hours parameter', async () => {
@@ -194,7 +205,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(database.getIncidents).toHaveBeenCalledWith(10);
+      expect(database.getIncidents).toHaveBeenCalledWith(10, DEFAULT_CLIENT_ID);
     });
 
     test('should reject invalid limit', async () => {
@@ -249,8 +260,11 @@ describe('API Integration Tests', () => {
 
       expect(response.body).toHaveProperty('success', true);
       expect(response.body).toHaveProperty('data');
-      expect(response.body).toHaveProperty('period');
-      
+      expect(response.body).toHaveProperty('meta');
+      expect(response.body.meta).toHaveProperty('resolution');
+      expect(response.body.meta).toHaveProperty('clientId');
+      expect(response.body.meta).toHaveProperty('hours');
+
       const data = response.body.data;
       expect(data).toHaveProperty('GET');
       expect(data).toHaveProperty('POST');
@@ -271,7 +285,7 @@ describe('API Integration Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.period).toBe('12 hours');
+      expect(response.body.meta).toHaveProperty('hours', 12);
     });
 
     test('should reject invalid hours parameter', async () => {

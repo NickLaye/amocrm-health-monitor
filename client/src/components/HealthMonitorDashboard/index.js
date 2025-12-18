@@ -1,1 +1,1 @@
-export { default } from './HealthMonitorDashboard';
+export { default } from './HealthMonitorDashboardWithData';

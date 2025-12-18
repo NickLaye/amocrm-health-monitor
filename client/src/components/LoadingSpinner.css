@@ -27,7 +27,7 @@
   width: 100%;
   height: 100%;
   border: 3px solid transparent;
-  border-top-color: #667eea;
+  border-top-color: #94a3b8;
   border-radius: 50%;
   animation: spin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
 }
@@ -57,7 +57,7 @@
   margin-top: 20px;
   font-size: 16px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  color: #e2e8f0;
   text-align: center;
 }
 
@@ -75,9 +75,9 @@
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0.1) 100%
+    rgba(15, 23, 42, 0.4) 0%,
+    rgba(51, 65, 85, 0.6) 50%,
+    rgba(15, 23, 42, 0.4) 100%
   );
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s ease-in-out infinite;
@@ -94,10 +94,11 @@
 }
 
 .skeleton-card {
-  background: white;
+  background: #1f2937;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  border: 1px solid #334155;
 }
 
 .skeleton-line {
@@ -105,9 +106,9 @@
   margin-bottom: 12px;
   background: linear-gradient(
     90deg,
-    #f0f0f0 0%,
-    #e0e0e0 50%,
-    #f0f0f0 100%
+    rgba(30, 41, 59, 0.8) 0%,
+    rgba(51, 65, 85, 0.8) 50%,
+    rgba(30, 41, 59, 0.8) 100%
   );
   background-size: 200% 100%;
   animation: skeleton-loading 1.5s ease-in-out infinite;

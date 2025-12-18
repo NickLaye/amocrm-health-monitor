@@ -88,7 +88,7 @@ class ErrorBoundary extends React.Component {
               Произошла ошибка при загрузке страницы. Не волнуйтесь, мы уже знаем о проблеме.
             </p>
 
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <details style={{
                 marginBottom: '24px',
                 textAlign: 'left',

@@ -1,9 +1,8 @@
 import axios from 'axios';
-import { fetchConfig } from './config';
 
 // Use relative path in production, full URL in development
-const API_BASE_URL = process.env.REACT_APP_API_URL || (
-  process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:3001/api'
+const API_BASE_URL = import.meta.env.VITE_API_URL || (
+  import.meta.env.PROD ? '/api' : 'http://localhost:3001/api'
 );
 
 class ApiService {
@@ -14,10 +13,29 @@ class ApiService {
     });
   }
 
-  // Get current status
-  async getStatus() {
+  buildParams(params = {}, clientId) {
+    if (clientId) {
+      return { ...params, clientId };
+    }
+    return params;
+  }
+
+  async getClients() {
     try {
-      const response = await this.client.get('/status');
+      const response = await this.client.get('/clients');
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching clients:', error);
+      throw error;
+    }
+  }
+
+  // Get current status
+  async getStatus(clientId) {
+    try {
+      const response = await this.client.get('/status', {
+        params: this.buildParams({}, clientId)
+      });
       return response.data.data;
     } catch (error) {
       console.error('Error fetching status:', error);
@@ -26,9 +44,9 @@ class ApiService {
   }
 
   // Get historical data
-  async getHistory(checkType = null, hours = 24) {
+  async getHistory(checkType = null, hours = 24, clientId) {
     try {
-      const params = { hours };
+      const params = this.buildParams({ hours }, clientId);
       if (checkType) {
         params.checkType = checkType;
       }
@@ -41,10 +59,10 @@ class ApiService {
   }
 
   // Get incidents
-  async getIncidents(limit = 50) {
+  async getIncidents(limit = 50, clientId) {
     try {
       const response = await this.client.get('/incidents', {
-        params: { limit }
+        params: this.buildParams({ limit }, clientId)
       });
       return response.data.data;
     } catch (error) {
@@ -54,10 +72,10 @@ class ApiService {
   }
 
   // Get statistics
-  async getStats(hours = 24) {
+  async getStats(hours = 24, clientId) {
     try {
       const response = await this.client.get('/stats', {
-        params: { hours }
+        params: this.buildParams({ hours }, clientId)
       });
       return response.data.data;
     } catch (error) {
@@ -66,24 +84,43 @@ class ApiService {
     }
   }
 
+  async requestSseToken(clientId) {
+    if (!clientId) {
+      throw new Error('clientId is required to request SSE token');
+    }
+    try {
+      const response = await this.client.post('/stream/token', { clientId });
+      const payload = response?.data?.data;
+      if (!payload?.token) {
+        throw new Error('Empty SSE token response');
+      }
+      return payload;
+    } catch (error) {
+      console.error('Error requesting SSE token:', error);
+      throw error;
+    }
+  }
+
   // Subscribe to real-time updates via SSE
-  async subscribeToUpdates(callback) {
-    // Load runtime configuration from backend
-    const config = await fetchConfig();
-    const apiSecret = config.apiSecret || '';
-    
-    // Build SSE URL with token (EventSource doesn't support custom headers)
-    const streamUrl = apiSecret 
-      ? `${API_BASE_URL}/stream?token=${encodeURIComponent(apiSecret)}`
-      : `${API_BASE_URL}/stream`;
-    
-    const eventSource = new EventSource(streamUrl);
+  async subscribeToUpdates(clientId, callback) {
+    if (!clientId) {
+      throw new Error('clientId is required to subscribe to updates');
+    }
+
+    const tokenPayload = await this.requestSseToken(clientId);
+
+    const params = new URLSearchParams();
+    params.append('clientId', clientId);
+    params.append('token', tokenPayload.token);
+
+    const streamUrl = `${API_BASE_URL}/stream?${params.toString()}`;
+    const eventSource = new EventSource(streamUrl, { withCredentials: true });
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'status_update') {
-          callback(data.checkType, data.data);
+          callback(data.checkType, data.data, data.clientId);
         }
       } catch (error) {
         console.error('Error parsing SSE message:', error);
@@ -96,6 +133,16 @@ class ApiService {
     };
 
     return eventSource;
+  }
+
+  async createAccount(payload) {
+    try {
+      const response = await this.client.post('/accounts', payload);
+      return response.data?.data;
+    } catch (error) {
+      console.error('Error creating account:', error);
+      throw error;
+    }
   }
 }
 

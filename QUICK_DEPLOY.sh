@@ -54,6 +54,7 @@ rsync -avz --delete -e "$RSYNC_SSH" \
     --exclude 'node_modules' \
     --exclude 'client/node_modules' \
     --exclude 'client/build' \
+    --exclude 'client/dist' \
     --exclude '.git' \
     --exclude '*.db' \
     --exclude '*.log' \
@@ -78,7 +79,7 @@ echo ""
 # Установка зависимостей
 echo "Установка зависимостей..."
 $SSH_CMD $SERVER "cd '$PROJECT_PATH' && npm install --production"
-$SSH_CMD $SERVER "cd '$PROJECT_PATH/client' && npm install --production"
+$SSH_CMD $SERVER "cd '$PROJECT_PATH/client' && npm install"
 
 echo "✓ Зависимости установлены"
 echo ""

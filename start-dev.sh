@@ -21,7 +21,7 @@ sleep 3
 # Start frontend
 echo "Starting frontend development server..."
 cd client
-npm start
+npm run dev
 
 # When frontend stops, also stop backend
 kill $BACKEND_PID

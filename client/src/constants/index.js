@@ -31,11 +31,11 @@ export const CHECK_TYPE_LABELS = {
  * @type {Object.<string, string>}
  */
 export const CHECK_TYPE_COLORS = {
-  GET: '#5B4FD5',    // Тёмно-фиолетовый (улучшенная различимость)
-  POST: '#0984E3',   // Синий
-  WEB: '#00C9A7',    // Ярко-бирюзовый (более зелёный)
-  HOOK: '#E67E22',   // Оранжевый
-  DP: '#FFD93D'      // Жёлтый яркий
+  GET: '#0EA5E9',    // sky-500
+  POST: '#14B8A6',   // teal-500
+  WEB: '#6366F1',    // indigo-500
+  HOOK: '#F97316',   // orange-500
+  DP: '#EAB308'      // amber-500
 };
 
 /**
@@ -44,6 +44,7 @@ export const CHECK_TYPE_COLORS = {
  */
 export const STATUS = {
   UP: 'up',
+  WARNING: 'warning',
   DOWN: 'down',
   UNKNOWN: 'unknown'
 };

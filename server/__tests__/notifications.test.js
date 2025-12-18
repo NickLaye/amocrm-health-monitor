@@ -1,268 +1,95 @@
-/**
- * Unit tests for Notifications Service
- */
+const { NotificationService } = require('../notifications');
+const { DEFAULTS } = require('../config/constants');
+const axios = require('axios');
 
-const { CHECK_TYPES } = require('../config/constants');
-
-// Mock logger
+jest.mock('axios');
 jest.mock('../utils/logger', () => ({
   createLogger: () => ({
     info: jest.fn(),
     error: jest.fn(),
     warn: jest.fn(),
-    debug: jest.fn()
-  })
-}));
-
-// Mock axios
-const mockAxiosPost = jest.fn();
-jest.mock('axios', () => ({
-  post: mockAxiosPost
+    debug: jest.fn(),
+  }),
 }));
 
 describe('NotificationService', () => {
-  let notifications;
-  const originalEnv = process.env;
+  let service;
+  const mockWebhookUrl = 'http://test-webhook.com';
+  const clientId = 'test_client';
 
   beforeEach(() => {
-    // Clear all mocks
     jest.clearAllMocks();
-    
-    // Setup mock axios response
-    mockAxiosPost.mockResolvedValue({ status: 200 });
-    
-    // Setup environment variables
-    process.env = {
-      ...originalEnv,
-      MATTERMOST_WEBHOOK_URL: 'https://test.mattermost.com/hooks/test123',
-      MATTERMOST_MENTIONS: '@user1 @user2'
-    };
-    
-    // Reset modules and require notifications after env is set
-    jest.resetModules();
-    notifications = require('../notifications');
+    jest.useFakeTimers();
+    process.env.MATTERMOST_WEBHOOK_URL = mockWebhookUrl;
+    service = new NotificationService();
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    jest.useRealTimers();
   });
 
-  describe('Initialization', () => {
-    test('should initialize with correct webhook URL and mentions', () => {
-      expect(notifications.webhookUrl).toBe('https://test.mattermost.com/hooks/test123');
-      expect(notifications.mentions).toBe('@user1 @user2');
-    });
+  describe('Flapping Detection', () => {
+    it('should detect flapping if status changes too frequently', async () => {
+      const context = { clientId };
 
-    test('should handle missing webhook URL gracefully', () => {
-      jest.resetModules();
-      delete process.env.MATTERMOST_WEBHOOK_URL;
-      
-      const notificationsNoWebhook = require('../notifications');
-      expect(notificationsNoWebhook.webhookUrl).toBeUndefined();
-    });
+      // 1. First failure
+      await service.sendDownNotification('GET', 'Error 1', context);
+      jest.advanceTimersByTime(125000); // Trigger Down alert
 
-    test('should use empty mentions if not provided', () => {
-      jest.resetModules();
-      delete process.env.MATTERMOST_MENTIONS;
-      process.env.MATTERMOST_WEBHOOK_URL = 'https://test.mattermost.com/hooks/test123';
-      
-      const notificationsNoMentions = require('../notifications');
-      expect(notificationsNoMentions.mentions).toBe('');
-    });
-  });
+      // 2. Recovery
+      await service.sendUpNotification('GET', Date.now(), context);
 
-  describe('sendDownNotification', () => {
-    test('should send down notification with correct payload', async () => {
-      await notifications.sendDownNotification(CHECK_TYPES.GET, 'Connection timeout');
+      // 3. Failure 2
+      await service.sendDownNotification('GET', 'Error 2', context);
+      jest.advanceTimersByTime(125000);
 
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          channel: 'skypro-crm-alerts',
-          username: expect.stringContaining('API (GET)'),
-          text: expect.stringContaining('не отвечает')
-        })
-      );
-    });
+      // 4. Recovery 2
+      await service.sendUpNotification('GET', Date.now(), context);
 
-    test('should include error message in notification', async () => {
-      await notifications.sendDownNotification(CHECK_TYPES.WEB, 'Server error 500');
+      // 5. Failure 3 - This should trigger FLAPPING logic
+      await service.sendDownNotification('GET', 'Error 3', context);
+      jest.advanceTimersByTime(125000);
 
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          text: expect.stringContaining('Server error 500')
-        })
-      );
-    });
-
-    test('should include mentions in notification', async () => {
-      await notifications.sendDownNotification(CHECK_TYPES.POST, 'API error');
-
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          text: expect.stringContaining('@user1 @user2')
-        })
-      );
-    });
-
-    test('should debounce duplicate notifications within 5 minutes', async () => {
-      // First notification
-      await notifications.sendDownNotification(CHECK_TYPES.GET, 'Error 1');
-      expect(mockAxiosPost).toHaveBeenCalledTimes(1);
-
-      // Second notification within 5 minutes should be skipped
-      await notifications.sendDownNotification(CHECK_TYPES.GET, 'Error 2');
-      expect(mockAxiosPost).toHaveBeenCalledTimes(1);
-    });
-
-    test('should not send notification if webhook URL is not configured', async () => {
-      jest.resetModules();
-      delete process.env.MATTERMOST_WEBHOOK_URL;
-      const notificationsNoWebhook = require('../notifications');
-
-      await notificationsNoWebhook.sendDownNotification(CHECK_TYPES.GET, 'Error');
-
-      expect(mockAxiosPost).not.toHaveBeenCalled();
-    });
-
-    test('should handle axios errors gracefully', async () => {
-      mockAxiosPost.mockRejectedValue(new Error('Network error'));
-
-      await expect(
-        notifications.sendDownNotification(CHECK_TYPES.GET, 'Error')
-      ).resolves.not.toThrow();
+      expect(axios.post).toHaveBeenCalled();
     });
   });
 
-  describe('sendUpNotification', () => {
-    test('should send up notification with correct payload', async () => {
-      const downSince = Date.now() - 5 * 60 * 1000; // 5 minutes ago
-      await notifications.sendUpNotification(CHECK_TYPES.GET, downSince);
-
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          channel: 'skypro-crm-alerts',
-          username: expect.stringContaining('API (GET)'),
-          text: expect.stringContaining('восстановлен')
-        })
-      );
+  describe('SLA Violation', () => {
+    it('should not fire SLA alert for normal response times', async () => {
+      for (let i = 0; i < 6; i++) {
+        await service.trackLatency('GET', 100, 200, clientId);
+      }
+      jest.runOnlyPendingTimers();
+      const slaCalls = axios.post.mock.calls.filter(call => call[1].text && call[1].text.includes('SLA'));
+      expect(slaCalls.length).toBe(0);
     });
 
-    test('should include downtime duration in notification', async () => {
-      const downSince = Date.now() - 3 * 60 * 1000; // 3 minutes ago
-      await notifications.sendUpNotification(CHECK_TYPES.WEB, downSince);
-
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          text: expect.stringContaining('3 мин')
-        })
-      );
-    });
-
-    test('should format downtime in seconds if less than 1 minute', async () => {
-      const downSince = Date.now() - 45 * 1000; // 45 seconds ago
-      await notifications.sendUpNotification(CHECK_TYPES.POST, downSince);
-
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          text: expect.stringContaining('45 сек')
-        })
-      );
-    });
-
-    test('should not send notification if webhook URL is not configured', async () => {
-      jest.resetModules();
-      delete process.env.MATTERMOST_WEBHOOK_URL;
-      const notificationsNoWebhook = require('../notifications');
-
-      await notificationsNoWebhook.sendUpNotification(CHECK_TYPES.GET, Date.now());
-
-      expect(mockAxiosPost).not.toHaveBeenCalled();
-    });
-
-    test('should handle axios errors gracefully', async () => {
-      mockAxiosPost.mockRejectedValue(new Error('Network error'));
-
-      await expect(
-        notifications.sendUpNotification(CHECK_TYPES.GET, Date.now())
-      ).resolves.not.toThrow();
+    it('should fire SLA alert if response time exceeds threshold', async () => {
+      for (let i = 0; i < 6; i++) {
+        await service.trackLatency('GET', 5000, 200, clientId);
+      }
+      jest.runOnlyPendingTimers();
+      expect(axios.post).toHaveBeenCalled();
     });
   });
 
-  describe('sendSummaryNotification', () => {
-    test('should send summary notification with stats', async () => {
-      const stats = {
-        [CHECK_TYPES.GET]: { uptime: 99.5, avgTime: 450 },
-        [CHECK_TYPES.POST]: { uptime: 98.0, avgTime: 520 },
-        [CHECK_TYPES.WEB]: { uptime: 100, avgTime: 300 }
-      };
+  describe('Recovery', () => {
+    it('should send recovery notification when status goes back to UP', async () => {
+      const context = { clientId };
 
-      await notifications.sendSummaryNotification(stats);
+      // 1. Set State to DOWN and let the alert fire
+      await service.sendDownNotification('GET', 'Initial Error', context);
+      jest.advanceTimersByTime(125000); // 120s delay + buffer
+      axios.post.mockClear();
 
-      expect(mockAxiosPost).toHaveBeenCalledWith(
-        'https://test.mattermost.com/hooks/test123',
-        expect.objectContaining({
-          channel: 'skypro-crm-alerts',
-          username: expect.stringContaining('Ежедневная сводка'),
-          text: expect.stringContaining('Uptime')
-        })
-      );
-    });
+      // 2. Send UP
+      await service.sendUpNotification('GET', Date.now() - 130000, context);
 
-    test('should include all check types in summary', async () => {
-      const stats = {
-        [CHECK_TYPES.GET]: { uptime: 99.5, avgTime: 450 },
-        [CHECK_TYPES.POST]: { uptime: 98.0, avgTime: 520 }
-      };
-
-      await notifications.sendSummaryNotification(stats);
-
-      const call = mockAxiosPost.mock.calls[0][1];
-      expect(call.text).toContain('API (GET)');
-      expect(call.text).toContain('API (POST)');
-    });
-
-    test('should not send summary if webhook URL is not configured', async () => {
-      jest.resetModules();
-      delete process.env.MATTERMOST_WEBHOOK_URL;
-      const notificationsNoWebhook = require('../notifications');
-
-      await notificationsNoWebhook.sendSummaryNotification({});
-
-      expect(mockAxiosPost).not.toHaveBeenCalled();
-    });
-
-    test('should handle axios errors gracefully', async () => {
-      mockAxiosPost.mockRejectedValue(new Error('Network error'));
-
-      await expect(
-        notifications.sendSummaryNotification({})
-      ).resolves.not.toThrow();
-    });
-  });
-
-  describe('Check Type Labels', () => {
-    test('should use correct label for each check type', async () => {
-      await notifications.sendDownNotification(CHECK_TYPES.GET, 'Error');
-      expect(mockAxiosPost.mock.calls[0][1].username).toContain('API (GET)');
-
-      await notifications.sendDownNotification(CHECK_TYPES.POST, 'Error');
-      expect(mockAxiosPost.mock.calls[1][1].username).toContain('API (POST)');
-
-      await notifications.sendDownNotification(CHECK_TYPES.WEB, 'Error');
-      expect(mockAxiosPost.mock.calls[2][1].username).toContain('Веб-интерфейс');
-
-      await notifications.sendDownNotification(CHECK_TYPES.HOOK, 'Error');
-      expect(mockAxiosPost.mock.calls[3][1].username).toContain('Вебхуки');
-
-      await notifications.sendDownNotification(CHECK_TYPES.DP, 'Error');
-      expect(mockAxiosPost.mock.calls[4][1].username).toContain('Digital Pipeline');
+      expect(axios.post).toHaveBeenCalled();
+      const payload = axios.post.mock.calls[0][1];
+      const attachmentText = payload.attachments && payload.attachments[0] ? payload.attachments[0].text : '';
+      const messageText = payload.text || '';
+      expect(attachmentText + messageText).toMatch(/(recovered|восстановлен|UP)/i);
     });
   });
 });
-

@@ -114,11 +114,12 @@ export function formatNumber(num, locale = 'ru-RU') {
  */
 export function getStatusText(status) {
   const statusMap = {
-    'up': 'UP',
-    'down': 'DOWN',
-    'unknown': 'N/A'
+    'up': 'ОК',
+    'warning': 'ВНИМ',
+    'down': 'СБОЙ',
+    'unknown': 'Н/Д'
   };
-  return statusMap[status] || 'N/A';
+  return statusMap[status] || 'Н/Д';
 }
 
 /**
@@ -165,36 +166,37 @@ export function formatMTBF(hours) {
 }
 
 /**
- * Formats Apdex Score (0-1 scale)
+ * Formats Apdex Score (0-1 scale) - returns only the numeric value
  * @param {number} score - Apdex score (0.0 - 1.0)
- * @returns {string} Formatted score with emoji and label
+ * @returns {string} Formatted score (e.g., "0.995")
  */
 export function formatApdex(score) {
   if (score === null || score === undefined || isNaN(score)) {
-    return 'N/A';
+    return '0.000';
   }
-  
-  const formattedScore = score.toFixed(3);
-  let emoji = '';
-  let label = '';
+  return score.toFixed(3);
+}
+
+/**
+ * Gets Apdex status label and styling info
+ * @param {number} score - Apdex score (0.0 - 1.0)
+ * @returns {object} Object with label, emoji, and className
+ */
+export function getApdexStatus(score) {
+  if (score === null || score === undefined || isNaN(score)) {
+    return { label: 'N/A', emoji: '', className: '' };
+  }
   
   if (score >= 0.94) {
-    emoji = '🟢';
-    label = 'Отлично';
+    return { label: 'Отлично', emoji: '🟢', className: 'apdex-pill-excellent' };
   } else if (score >= 0.85) {
-    emoji = '🟡';
-    label = 'Хорошо';
+    return { label: 'Хорошо', emoji: '🟡', className: 'apdex-pill-good' };
   } else if (score >= 0.70) {
-    emoji = '🟠';
-    label = 'Нормально';
+    return { label: 'Нормально', emoji: '🟠', className: 'apdex-pill-good' };
   } else if (score >= 0.50) {
-    emoji = '🔴';
-    label = 'Плохо';
+    return { label: 'Плохо', emoji: '🔴', className: 'apdex-pill-critical' };
   } else {
-    emoji = '⚫';
-    label = 'Критично';
+    return { label: 'Критично', emoji: '⚫', className: 'apdex-pill-critical' };
   }
-  
-  return `${formattedScore} ${emoji} ${label}`;
 }
 

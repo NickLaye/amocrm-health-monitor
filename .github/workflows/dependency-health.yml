@@ -1,0 +1,173 @@
+name: Dependency Health
+
+on:
+  schedule:
+    - cron: '30 6 * * 1-5' # каждый будний день в 09:30 по МСК
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      SECURITY_ALERT: '0'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install backend dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Install frontend dependencies
+        run: cd client && npm ci --ignore-scripts
+
+      - name: Collect dependency data
+        run: |
+          mkdir -p reports
+          npm outdated --json > reports/root-outdated.json || true
+          npm audit --omit=dev --json > reports/root-audit.json || true
+          cd client
+          npm outdated --json > ../reports/client-outdated.json || true
+          npm audit --omit=dev --json > ../reports/client-audit.json || true
+
+      - name: Build dependency report
+        run: |
+          node <<'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const reportsDir = path.join(process.cwd(), 'reports');
+
+          const readJson = (file) => {
+            const target = path.join(reportsDir, file);
+            if (!fs.existsSync(target)) return {};
+            const raw = fs.readFileSync(target, 'utf8').trim();
+            if (!raw) return {};
+            try {
+              return JSON.parse(raw);
+            } catch {
+              return {};
+            }
+          };
+
+          const formatOutdated = (label, data) => {
+            const entries = Object.entries(data || {});
+            if (!entries.length) {
+              return `### ${label}\nНет устаревших пакетов 🎉\n`;
+            }
+
+            const lines = entries.map(([pkg, info]) => {
+              const type = info.type || 'dependency';
+              return `- \`${pkg}\` (${type}) — ${info.current} → ${info.latest} (wanted ${info.wanted})`;
+            });
+
+            return `### ${label}\n${lines.join('\n')}\n`;
+          };
+
+          const flattenAudits = (source) => {
+            if (!source || !source.vulnerabilities) return [];
+            return Object.entries(source.vulnerabilities).map(([name, info]) => {
+              const severity = (info.severity || '').toLowerCase();
+              const via = (info.via || []).map((item) => {
+                if (typeof item === 'string') return item;
+                if (item && typeof item === 'object') {
+                  return item.title || item.source || '';
+                }
+                return '';
+              }).filter(Boolean);
+
+              const fixAvailable = info.fixAvailable;
+              let fix = 'manual';
+              if (fixAvailable && typeof fixAvailable === 'object') {
+                const fixName = fixAvailable.name || name;
+                const fixVersion = fixAvailable.version || '';
+                fix = fixVersion ? `${fixName}@${fixVersion}` : fixName;
+              } else if (typeof fixAvailable === 'string') {
+                fix = fixAvailable;
+              }
+
+              return {
+                name,
+                severity,
+                via,
+                scope: info.isDirect ? 'direct' : 'transitive',
+                fix,
+              };
+            });
+          };
+
+          const backendOutdated = readJson('root-outdated.json');
+          const frontendOutdated = readJson('client-outdated.json');
+          const backendAudit = readJson('root-audit.json');
+          const frontendAudit = readJson('client-audit.json');
+
+          const auditEntries = [
+            ...flattenAudits(backendAudit).map((item) => ({ ...item, project: 'backend' })),
+            ...flattenAudits(frontendAudit).map((item) => ({ ...item, project: 'frontend' })),
+          ].filter((item) => item.severity === 'high' || item.severity === 'critical');
+
+          const reportParts = [
+            '# Dependency Health Report',
+            '',
+            '## npm outdated',
+            formatOutdated('Backend (root)', backendOutdated),
+            formatOutdated('Frontend (client)', frontendOutdated),
+            '## npm audit (High/Critical findings)',
+          ];
+
+          if (!auditEntries.length) {
+            reportParts.push('Критичных или высоких уязвимостей не обнаружено ✅');
+          } else {
+            reportParts.push('| Проект | Пакет | Severity | Тип | Возможное исправление |');
+            reportParts.push('|--------|-------|----------|-----|-----------------------|');
+            auditEntries.forEach((item) => {
+              const via = item.via.slice(0, 2).join(', ') || 'n/a';
+              reportParts.push(`| ${item.project} | \`${item.name}\` | ${item.severity} | ${item.scope} | ${item.fix} (${via}) |`);
+            });
+          }
+
+          const reportPath = path.join(reportsDir, 'dependency-health.md');
+          fs.writeFileSync(reportPath, reportParts.join('\n') + '\n', 'utf8');
+
+          const criticalEntries = auditEntries.filter((item) => item.severity === 'critical');
+          if (criticalEntries.length) {
+            const alertLines = [
+              'Обнаружены критические уязвимости npm:',
+              '',
+              ...criticalEntries.map((item) => `- ${item.project}: \`${item.name}\` (фикс: ${item.fix})`),
+              '',
+              'Пожалуйста, обновите зависимости и перезапустите пайплайн.',
+            ];
+
+            const alertPath = path.join(reportsDir, 'security-alert.md');
+            fs.writeFileSync(alertPath, alertLines.join('\n'), 'utf8');
+
+            if (process.env.GITHUB_ENV) {
+              fs.appendFileSync(process.env.GITHUB_ENV, 'SECURITY_ALERT=1\n');
+            }
+          }
+          EOF
+
+      - name: Upload dependency report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-health
+          path: reports
+
+      - name: Create security issue for critical findings
+        if: ${{ env.SECURITY_ALERT == '1' }}
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "Critical npm vulnerability detected"
+          content-filepath: reports/security-alert.md
+          labels: security, dependencies
+

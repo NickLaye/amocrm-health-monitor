@@ -4,6 +4,9 @@
  */
 
 const { DEFAULTS } = require('./constants');
+const { createLogger } = require('../utils/logger');
+
+const envLogger = createLogger('EnvValidator');
 
 /**
  * Required environment variables
@@ -14,7 +17,10 @@ const REQUIRED_ENV_VARS = [
   'AMOCRM_CLIENT_SECRET',
   'AMOCRM_REDIRECT_URI',
   'AMOCRM_REFRESH_TOKEN',
-  'MATTERMOST_WEBHOOK_URL'
+  'MATTERMOST_WEBHOOK_URL',
+  // Test entity for POST API checks
+  'AMOCRM_TEST_DEAL_ID',
+  'AMOCRM_TEST_FIELD_ID'
 ];
 
 /**
@@ -32,20 +38,20 @@ const OPTIONAL_ENV_VARS = {
  */
 function validateEnv() {
   const missing = REQUIRED_ENV_VARS.filter(varName => !process.env[varName]);
-  
+
   if (missing.length > 0) {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')}\n` +
       'Please check your .env file.'
     );
   }
-  
+
   // Check API_SECRET in production
   if (process.env.NODE_ENV === 'production' && !process.env.API_SECRET) {
     throw new Error('API_SECRET is required in production mode!');
   }
-  
-  console.log('✓ All required environment variables are set');
+
+  envLogger.info('All required environment variables are set');
 }
 
 /**
@@ -67,13 +73,13 @@ function getEnvOrDefault(key, defaultValue) {
 function getIntEnvOrDefault(key, defaultValue) {
   const value = process.env[key];
   if (!value) return defaultValue;
-  
+
   const parsed = parseInt(value, 10);
   if (isNaN(parsed)) {
-    console.warn(`Warning: Invalid integer value for ${key}, using default: ${defaultValue}`);
+    envLogger.warn(`Invalid integer value for ${key}, using default: ${defaultValue}`);
     return defaultValue;
   }
-  
+
   return parsed;
 }
 
@@ -81,12 +87,12 @@ function getIntEnvOrDefault(key, defaultValue) {
  * Logs current configuration
  */
 function logConfiguration() {
-  console.log('\n📋 Current Configuration:');
-  console.log(`  • amoCRM Domain: ${process.env.AMOCRM_DOMAIN}`);
-  console.log(`  • Check Interval: ${getIntEnvOrDefault('CHECK_INTERVAL', DEFAULTS.CHECK_INTERVAL)}ms`);
-  console.log(`  • Timeout Threshold: ${getIntEnvOrDefault('TIMEOUT_THRESHOLD', DEFAULTS.TIMEOUT_THRESHOLD)}ms`);
-  console.log(`  • Server Port: ${getIntEnvOrDefault('PORT', DEFAULTS.PORT)}`);
-  console.log('');
+  envLogger.info('\n📋 Current Configuration:');
+  envLogger.info(`  • amoCRM Domain: ${process.env.AMOCRM_DOMAIN}`);
+  envLogger.info(`  • Check Interval: ${getIntEnvOrDefault('CHECK_INTERVAL', DEFAULTS.CHECK_INTERVAL)}ms`);
+  envLogger.info(`  • Timeout Threshold: ${getIntEnvOrDefault('TIMEOUT_THRESHOLD', DEFAULTS.TIMEOUT_THRESHOLD)}ms`);
+  envLogger.info(`  • Server Port: ${getIntEnvOrDefault('PORT', DEFAULTS.PORT)}`);
+  envLogger.info('');
 }
 
 module.exports = {

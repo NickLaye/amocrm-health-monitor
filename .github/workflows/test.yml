@@ -30,7 +30,6 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint || echo "ESLint not configured yet"
-        continue-on-error: true
 
       - name: Run backend tests
         run: npm test -- --coverage
@@ -48,6 +47,8 @@ jobs:
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: http://localhost:3001/api
 
     strategy:
       matrix:
@@ -75,7 +76,6 @@ jobs:
         run: cd client && npm test -- --coverage --watchAll=false
         env:
           CI: true
-        continue-on-error: true
 
       - name: Build frontend
         run: cd client && npm run build
@@ -85,6 +85,8 @@ jobs:
   build-check:
     name: Build Check
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: http://localhost:3001/api
     needs: [backend-tests, frontend-tests]
 
     steps:
@@ -110,10 +112,10 @@ jobs:
 
       - name: Check build artifacts
         run: |
-          if [ ! -d "client/build" ]; then
+          if [ ! -d "client/dist" ]; then
             echo "Build directory not found!"
             exit 1
           fi
           echo "Build artifacts:"
-          ls -lah client/build/
+          ls -lah client/dist/
 

@@ -1,359 +1,177 @@
-# amoCRM Health Monitor Dashboard
+# amoCRM Health Monitor v2.0
 
-Real-time мониторинг доступности amoCRM с уведомлениями в Mattermost и красивым дашбордом.
+> **Single Tenant · Secure · Dark Mode** — единое окно для техподдержки и SRE с real-time метриками amoCRM.
 
-> 📝 **История изменений:** [CHANGELOG.md](./CHANGELOG.md)  
-> 🏗️ **Архитектура:** [ARCHITECTURE.md](./ARCHITECTURE.md)
+Этот README — единственный источник правды для релиза v2.0.
 
-## 🚀 Статус проекта
+## Highlights
+- 🔒 **Multi-tenant & Secure by default**: несколько amoCRM-доменов через `AMOCRM_CLIENTS`, отдельные токены и интервалы на клиента, плюс Basic Auth (`ADMIN_USER`/`ADMIN_PASSWORD`), `API_SECRET`, строгий CORS и rate limiting.
+- 🌑 **Dark Mode UI**: React 19 + Vite 7 + Tailwind (Slate palette) + Chart.js 4, SSE-дашборд с live-картами.
+- 📡 **5 типов проверок**: GET, POST, WEB, HOOK, Digital Pipeline; результаты хранятся в SQLite и отдаются через SSE/Web API.
+- 🔔 **Incident pipeline**: Mattermost webhook обязателен, email/Summary канал по желанию.
+- 📈 **Ops-friendly**: Prometheus `/api/metrics`, cron cleanup, structured logging (Winston + rotation).
+- 🧱 **Self-contained**: Node.js backend + React frontend + SQLite file DB → легко переносить и деплоить.
 
-- **Версия:** 1.5.1
-- **Статус:** ✅ Production Ready
-- **URL:** https://amohealth.duckdns.org
-- **Test Coverage:** 32.5% statements
-- **Рейтинг:** 9.2/10
+## Tech Stack
+| Слой | Технологии |
+| --- | --- |
+| Backend | Node.js ≥ 18.19 · Express 5 · SSE · Winston · prom-client |
+| Frontend | React 19 · Vite 7 · Tailwind Slate · Chart.js 4 · Vitest |
+| Storage | SQLite 3 (`health_checks.db`) + Umzug миграции |
+| Notifications | Mattermost webhook (обязательно) + optional SMTP email |
+| Deployment | Docker/Compose, PM2, nginx reverse proxy |
 
-## Возможности
+## Architecture Snapshot
+1. **Monitor service** каждые `CHECK_INTERVAL` миллисекунд обращается к amoCRM API/UI/Hook/DP, меряет `responseTime`, пишет в SQLite.
+2. **Database** агрегирует статистику, хранит активные инциденты и отдает метрики для графиков.
+3. **API layer** (`/api/status`, `/api/history`, `/api/stats`, `/api/incidents`, `/api/metrics`, `/api/stream`) обслуживает UI и внешние интеграции.
+4. **Notifications** отправляют DOWN/UP события и суточную сводку в Mattermost (email/Summary доступен дополнительно).
+5. **Frontend** слушает SSE `/api/stream`, визуализирует статистику и историю в одном темном дашборде.
 
-- ✅ Мониторинг 5 типов проверок:
-  - **GET API** - проверка API на чтение
-  - **POST API** - проверка API на запись
-  - **WEB** - проверка веб-интерфейса
-  - **HOOK** - проверка работы webhooks
-  - **DP** - проверка Digital Pipeline
-- 📊 Real-time дашборд с графиками времени ответа
-- 📈 15 метрик производительности (Uptime, MTTR, MTBF, Apdex Score и др.)
-- 🔔 Автоматические уведомления в Mattermost при падении/восстановлении
-- 📜 История инцидентов с автоматическим отслеживанием
-- 💾 SQLite база данных для хранения данных
-- 🔄 Server-Sent Events (SSE) для real-time обновлений
-- 🔐 Автоматическое обновление OAuth токенов
-
-## Требования
-
-- Node.js 18+ или 20+
-- npm или yarn
-- Доступ к amoCRM API (OAuth 2.0)
-- Mattermost webhook URL (опционально)
-
-## Быстрый старт
-
-### 1. Клонирование репозитория
-
+## Getting Started
+### 1. Клонирование
 ```bash
 git clone <repository-url>
 cd "Health Check amoCRM"
 ```
 
 ### 2. Установка зависимостей
-
 ```bash
-# Установить зависимости для backend
-npm install
-
-# Установить зависимости для frontend
-cd client
-npm install
-cd ..
+npm install          # backend deps
+cd client && npm install && cd ..
 ```
 
-### 3. Конфигурация
-
-Создайте файл `.env` в корневой директории на основе `.env.example`:
-
+### 3. Конфигурация окружения
 ```bash
 cp .env.example .env
 ```
+Заполните обязательные переменные (остальные см. `.env.example`):
 
-Заполните обязательные переменные окружения:
+| Переменная | Назначение |
+| --- | --- |
+| `AMOCRM_DOMAIN`, `AMOCRM_CLIENT_ID`, `AMOCRM_CLIENT_SECRET`, `AMOCRM_REDIRECT_URI`, `AMOCRM_REFRESH_TOKEN` | OAuth-доступ к вашему amoCRM аккаунту (legacy режим) |
+| `AMOCRM_CLIENTS`, `CLIENT_<slug>_*` | Multi-tenant конфигурация: перечислите slug'и (например `skillssales`) и задайте для каждого `CLIENT_slug_DOMAIN`, `CLIENT_slug_CLIENT_ID/SECRET`, `CLIENT_slug_REFRESH_TOKEN`, DP тайминги |
+| `CLIENT_<slug>_MATTERMOST_WEBHOOK_URL`, `CLIENT_<slug>_MATTERMOST_CHANNEL` | Per-client настройки Mattermost (приоритет над глобальными) |
+| `CLIENT_<slug>_EMAILS` | Per-client email-получатели (через запятую) |
+| `CLIENT_<slug>_RESPONSIBLE_EMAIL` | Email ответственного за клиента |
+| `API_SECRET` | Shared secret для API и SSE (используйте `openssl rand -hex 32`) |
+| `ADMIN_USER` / `ADMIN_PASSWORD` | Basic Auth для единственного тенанта/UI |
+| `MATTERMOST_WEBHOOK_URL`, `MATTERMOST_CHANNEL` | Глобальные настройки Mattermost (fallback для клиентов без per-client конфига) |
+| `EXTERNAL_WEBHOOK_TOKEN` | Токен для внешнего вебхука `/api/webhooks/mattermail` |
+| `VITE_API_URL` | URL backend API, вшивается в фронт при `npm run build` |
 
-```env
-# amoCRM OAuth Configuration
-AMOCRM_DOMAIN=your-domain.amocrm.ru
-AMOCRM_CLIENT_ID=your_client_id
-AMOCRM_CLIENT_SECRET=your_client_secret
-AMOCRM_REDIRECT_URI=https://your-domain.com/oauth/callback
-AMOCRM_ACCESS_TOKEN=your_initial_access_token
-AMOCRM_REFRESH_TOKEN=your_initial_refresh_token
+> Без `API_SECRET`, `ADMIN_USER`, `ADMIN_PASSWORD` и `MATTERMOST_WEBHOOK_URL` запуск запрещён.
 
-# Mattermost Notifications
-MATTERMOST_WEBHOOK_URL=https://your-mattermost.com/hooks/webhook_id
-MATTERMOST_MENTIONS=@user1 @user2
-
-# Security (обязательно в production!)
-API_SECRET=generate_random_secret_here
-
-# Monitoring Settings
-CHECK_INTERVAL=60000          # Интервал проверок в миллисекундах (60 сек)
-TIMEOUT_THRESHOLD=10000       # Таймаут для определения падения (10 сек)
-
-# Server Configuration
-PORT=3001
-NODE_ENV=development
-```
-
-> 💡 **Совет:** Используйте `openssl rand -hex 32` для генерации безопасного `API_SECRET`
-
-### 4. Запуск в режиме разработки
-
+### 4. Dev-режим
 ```bash
-# Терминал 1 - запуск backend
+# Терминал 1 — backend (порт 3001)
 npm run dev
 
-# Терминал 2 - запуск frontend
-cd client
-npm start
+# Терминал 2 — frontend (порт 5173)
+cd client && npm run dev
 ```
+Дашборд: http://localhost:5173 · API: http://localhost:3001/api
 
-Frontend будет доступен на `http://localhost:3000`  
-Backend API на `http://localhost:3001`
-
-### 5. Сборка для продакшена
-
+### 5. Production build
 ```bash
-# Собрать frontend
 cd client
-npm run build
+VITE_API_URL=https://your-domain.com/api npm run build
 cd ..
-
-# Запустить в production режиме
 NODE_ENV=production npm start
 ```
+Backend автоматически раздаёт `client/dist` при прод-сборке.
 
-## Деплой на облачный сервер
-
-### Вариант 1: PM2 (рекомендуется)
-
+### 6. Docker / Compose
+Dev parity:
 ```bash
-# Установить PM2 глобально
-npm install -g pm2
-
-# Собрать frontend
-cd client && npm run build && cd ..
-
-# Запустить с PM2
-pm2 start ecosystem.config.js
-
-# Настроить автозапуск
-pm2 startup
-pm2 save
+docker compose -f docker-compose.dev.yml up --build
 ```
-
-### Вариант 2: Nginx + PM2
-
-1. Установите Nginx на сервере:
-
+Prod образ:
 ```bash
-sudo apt update
-sudo apt install nginx
+docker compose build
+docker compose up -d
 ```
+Prometheus тянет `/api/metrics`, Grafana доступна на `http://localhost:3002`.
 
-2. Скопируйте конфигурацию Nginx:
+## Operations Cheatsheet
+### Monitoring & Notifications
+- 5 типов проверок, SSE-стрим + REST API.
+- Mattermost — основной канал; email summary (`EMAIL_*`) включайте при необходимости.
+- `/api/metrics` → prom-client метрики (uptime, latency, incidents, jobs).
+- Cron (`server/index.js`) очищает старые записи и закрывает «висячие» инциденты.
 
-```bash
-sudo cp nginx.conf /etc/nginx/sites-available/amocrm-health
-sudo ln -s /etc/nginx/sites-available/amocrm-health /etc/nginx/sites-enabled/
-```
+### Security & Governance
+- Basic Auth (`ADMIN_*`) + `API_SECRET` для SSE токена.
+- Express-rate-limit (конфиг через `RATE_LIMIT_*`, IPv6 агрегируется по `/56`).
+- Helmet, CORS whitelist (`ALLOWED_ORIGINS`), structured logging (Winston + daily rotate).
+- OAuth токены автоматически обновляются (`token-manager`).
 
-3. Nginx уже настроен для домена `amohealth.duckdns.org`
-   - Конфигурация готова к использованию
-   - SSL сертификаты будут получены через Let's Encrypt
+## API Surface
+| Метод | Путь | Описание |
+| --- | --- | --- |
+| `GET` | `/api/status` | Текущий статус всех проверок |
+| `GET` | `/api/history?checkType=&hours=` | История проверок |
+| `GET` | `/api/stats?hours=` | 15 агрегированных метрик |
+| `GET` | `/api/incidents?limit=` | Журнал инцидентов |
+| `GET` | `/api/clients` | Список доступных клиентов/окружений |
+| `POST` | `/api/accounts` | Добавление нового аккаунта amoCRM в мониторинг |
+| `POST` | `/api/webhooks/mattermail` | Внешний вебхук для отправки инцидентов в Mattermost и Email |
+| `GET` | `/api/stream` | SSE-канал для live-обновлений |
+| `GET` | `/api/metrics` | Prometheus metrics |
+| `GET` | `/api/docs` | Swagger UI (`swagger.yaml`) |
 
-4. Проверьте и перезагрузите Nginx:
+> В multi-tenant конфигурации все чтения (`/status`, `/history`, `/stats`, `/incidents`, `/export/*`, `/stream`, `/webhook/callback`) требуют `clientId` (например `?clientId=skillssales`). Если настроен только один клиент, параметр необязателен и используется первый в списке.
 
-```bash
-sudo nginx -t
-sudo systemctl reload nginx
-```
+### Добавление аккаунтов через UI
 
-5. Запустите приложение с PM2 (см. Вариант 1)
+На дашборде доступна кнопка **"Добавить аккаунт"** в шапке, которая ведет на страницу `/accounts/new`. Форма позволяет добавить новый аккаунт amoCRM с обязательными полями:
 
-### Настройка SSL с Let's Encrypt
+- **Основные данные**: Client ID, отображаемое имя, среда (production/staging/test), ответственный email
+- **Интеграция amoCRM**: поддомен, Client ID, Client Secret, Redirect URI, Access Token, Refresh Token
+- **Оповещения**: Mattermost Webhook URL и канал (обязательно), Email-адреса получателей (опционально)
 
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
-```
+После сохранения конфигурация записывается в `.env.production` и `.env.local`, а новый аккаунт сразу появляется в селекторе на дашборде.
 
-## Тестирование
+### Внешний вебхук для инцидентов
 
-Проект включает unit и интеграционные тесты с покрытием более 30%.
+Эндпоинт `POST /api/webhooks/mattermail` принимает внешние инциденты и отправляет уведомления в Mattermost и Email. Требует заголовок `X-Webhook-Token` или query-параметр `token` со значением из `EXTERNAL_WEBHOOK_TOKEN`.
 
-```bash
-# Запустить все тесты
-npm test
-
-# Запустить тесты в watch mode
-npm run test:watch
-
-# Запустить тесты с отчетом о покрытии
-npm test -- --coverage
-```
-
-**Покрытие кодом:**
-- Token Manager: 68%
-- API Endpoints: 50%
-- Monitor: 31%
-- Database: протестированы основные методы
-- **Всего:** 32.5% statements, 25% branches
-
-**Что протестировано:**
-- ✅ Token management (загрузка, сохранение, обновление)
-- ✅ API endpoints (/status, /history, /stats, /health, /incidents)
-- ✅ Monitor (updateStatus, resolveOrphanedIncidents)
-- ✅ Database (основные CRUD операции)
-- ✅ HTTP helpers и утилиты
-- ✅ Валидация входных данных
-
-Тесты автоматически запускаются в CI/CD pipeline при каждом push.
-
-## API Endpoints
-
-### GET /api/status
-Получить текущий статус всех сервисов
-
-**Ответ:**
+**Пример запроса:**
 ```json
 {
-  "success": true,
-  "data": {
-    "GET": {
-      "status": "up",
-      "responseTime": 450,
-      "lastCheck": 1699876543210,
-      "errorMessage": null
-    },
-    ...
-  }
+  "clientId": "client-01",
+  "status": "down",
+  "checkType": "CUSTOM",
+  "message": "Обнаружена проблема",
+  "title": "🚨 Критический инцидент",
+  "fields": [
+    { "short": true, "title": "Источник", "value": "Внешняя система" }
+  ]
 }
 ```
 
-### GET /api/history?checkType=GET&hours=24
-Получить историю проверок
+Поддерживаемые статусы: `down`, `up`, `warning`. Если `clientId` не указан, используется `default`.
 
-**Параметры:**
-- `checkType` (опционально) - тип проверки (GET, POST, WEB, HOOK, DP)
-- `hours` (опционально) - период в часах (по умолчанию 24)
-
-### GET /api/incidents?limit=50
-Получить историю инцидентов
-
-**Параметры:**
-- `limit` (опционально) - количество инцидентов (по умолчанию 50)
-
-### GET /api/stats?hours=24
-Получить статистику
-
-**Параметры:**
-- `hours` (опционально) - период в часах (по умолчанию 24)
-
-### GET /api/stream
-Server-Sent Events для real-time обновлений
-
-## Структура проекта
-
-```
-amocrm-health-monitor/
-├── server/
-│   ├── index.js          # Главный файл сервера
-│   ├── api.js            # API endpoints
-│   ├── monitor.js        # Сервис мониторинга
-│   ├── database.js       # Работа с SQLite
-│   └── notifications.js  # Уведомления в Mattermost
-├── client/
-│   ├── public/
-│   └── src/
-│       ├── components/   # React компоненты
-│       ├── services/     # API клиент
-│       ├── App.js
-│       └── index.js
-├── package.json
-├── ecosystem.config.js   # PM2 конфигурация
-├── nginx.conf           # Nginx конфигурация
-└── README.md
-```
-
-## Мониторинг и логи
-
-### Просмотр логов PM2
-
+## Testing
 ```bash
-# Все логи
-pm2 logs
+# Backend
+npm test
+npm run test:watch
 
-# Логи конкретного процесса
-pm2 logs amocrm-health-monitor
-
-# Только ошибки
-pm2 logs --err
+# Frontend
+cd client
+npm run test           # vitest --run
+npm run dev -- --host  # для ручных smoke-тестов
 ```
+CI/CD (GitHub Actions) прогоняет Jest + Vitest + security audit (`npm audit --omit=dev`).
 
-### Мониторинг процессов
+## Deployment Options
+- **PM2**: `cd client && npm run build`, затем `pm2 start ecosystem.config.js` и `pm2 save`.
+- **Docker/Compose**: см. выше, финальный образ уже содержит `client/dist`.
+- **Nginx**: используйте `nginx.conf` как reverse proxy + TLS (Let’s Encrypt/Certbot).
 
-```bash
-# Статус процессов
-pm2 status
-
-# Детальная информация
-pm2 show amocrm-health-monitor
-
-# Мониторинг в реальном времени
-pm2 monit
-```
-
-## Troubleshooting
-
-### База данных заблокирована
-
-Если возникает ошибка "database is locked":
-
-```bash
-# Остановить приложение
-pm2 stop amocrm-health-monitor
-
-# Удалить lock файл
-rm health_checks.db-journal
-
-# Запустить снова
-pm2 start amocrm-health-monitor
-```
-
-### Уведомления не приходят
-
-1. Проверьте корректность webhook URL в `.env`
-2. Проверьте логи: `pm2 logs amocrm-health-monitor`
-3. Убедитесь, что Mattermost webhook активен
-
-### Высокая нагрузка
-
-Если сервер испытывает высокую нагрузку:
-
-1. Увеличьте `CHECK_INTERVAL` в `.env` (например, до 60000 для проверки раз в минуту)
-2. Настройте ротацию логов в `ecosystem.config.js`
-3. Включите cleanup старых записей (автоматически запускается раз в день)
-
-## Обновление
-
-```bash
-# Получить обновления
-git pull
-
-# Установить новые зависимости
-npm install
-cd client && npm install && cd ..
-
-# Пересобрать frontend
-cd client && npm run build && cd ..
-
-# Перезапустить PM2
-pm2 reload ecosystem.config.js
-```
-
-## Лицензия
-
-MIT
-
-## Поддержка
-
-При возникновении проблем создайте issue в репозитории проекта.
+## Support & Status
+- **Версия:** 2.0 (Single Tenant, Secure, Dark Mode)
+- **Runtime matrix:** Node.js 18.x/20.x, npm 10.x, React 19.2, Tailwind 4.1, SQLite 3.
+- **Контакты:** создайте issue или пинганите в Mattermost канале проекта.
 
