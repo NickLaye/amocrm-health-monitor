@@ -185,11 +185,17 @@ jobs:
               sudo cp nginx.conf /etc/nginx/sites-available/amohealth
               sudo ln -sf /etc/nginx/sites-available/amohealth /etc/nginx/sites-enabled/
               
-              # Ensure /health file doesn't exist in static directory (would interfere with proxy)
+              # Ensure /health file doesn't exist in static directory (would interfere with Express route)
+              # Express static middleware processes before routes, so any static file would override the route
               if [ -d "client-build" ]; then
+                echo "Checking for conflicting health files in static directory..."
                 if [ -f "client-build/health" ]; then
                   echo "⚠ Removing conflicting /health file from static directory"
                   rm -f client-build/health
+                fi
+                if [ -d "client-build/health" ]; then
+                  echo "⚠ Removing conflicting /health directory from static directory"
+                  rm -rf client-build/health
                 fi
                 # Also check for health.html or health/index.html
                 rm -f client-build/health.html client-build/health/index.html 2>/dev/null || true
