@@ -172,8 +172,8 @@ class ClientRegistry {
         redirectUri: env('REDIRECT_URI', { fallback: process.env.AMOCRM_REDIRECT_URI }),
       },
       tokens: {
-        accessToken: env('ACCESS_TOKEN', { fallback: process.env.AMOCRM_ACCESS_TOKEN }),
-        refreshToken: env('REFRESH_TOKEN', { fallback: process.env.AMOCRM_REFRESH_TOKEN }),
+        access_token: env('ACCESS_TOKEN', { fallback: process.env.AMOCRM_ACCESS_TOKEN }),
+        refresh_token: env('REFRESH_TOKEN', { fallback: process.env.AMOCRM_REFRESH_TOKEN }),
       },
       dp: {
         contactName: env('DP_CONTACT_NAME', { fallback: process.env.AMOCRM_DP_CONTACT_NAME }),
@@ -235,8 +235,8 @@ class ClientRegistry {
         redirectUri: process.env.AMOCRM_REDIRECT_URI,
       },
       tokens: {
-        accessToken: process.env.AMOCRM_ACCESS_TOKEN,
-        refreshToken: process.env.AMOCRM_REFRESH_TOKEN,
+        access_token: process.env.AMOCRM_ACCESS_TOKEN,
+        refresh_token: process.env.AMOCRM_REFRESH_TOKEN,
       },
       dp: {
         contactName: process.env.AMOCRM_DP_CONTACT_NAME,

@@ -43,11 +43,11 @@ const STATUS = {
  * warningMs — деградация, downMs — критическое превышение.
  */
 const LATENCY_THRESHOLDS = {
-  GET: { warningMs: 500, downMs: 1500 },
-  POST: { warningMs: 500, downMs: 1500 },
-  WEB: { warningMs: 500, downMs: 1500 },
-  HOOK: { warningMs: 500, downMs: 1500 },
-  DP: { warningMs: 2000, downMs: 5000 }
+  GET: { warningMs: 7000, downMs: 12000 },
+  POST: { warningMs: 7000, downMs: 12000 },
+  WEB: { warningMs: 7000, downMs: 12000 },
+  HOOK: { warningMs: 7000, downMs: 12000 },
+  DP: { warningMs: 7000, downMs: 12000 }
 };
 
 /**
@@ -67,7 +67,7 @@ const CLIENT_ID_PATTERN = /^[A-Za-z0-9#._-]{1,64}$/;
  */
 const DEFAULTS = {
   CHECK_INTERVAL: 60000,        // 1 minute
-  TIMEOUT_THRESHOLD: 10000,     // 10 seconds
+  TIMEOUT_THRESHOLD: 30000,     // 30 seconds
   PORT: 3001,
   TOKEN_REFRESH_INTERVAL: 3600000, // 1 hour
   NOTIFICATION_DEBOUNCE: 300000,   // 5 minutes

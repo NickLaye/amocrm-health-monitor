@@ -4,6 +4,8 @@ const database = require('../database');
 const notifications = require('../notifications');
 const TokenManager = require('../token-manager');
 const metrics = require('../metrics');
+const RateLimiter = require('../utils/rate-limiter');
+const axios = require('axios');
 
 // Import mixins directly to avoid circular dependency with index.js
 const DPHandler = require('./dp-handler');
@@ -86,6 +88,9 @@ class AmoCRMMonitor {
             this.tokenManager = new TokenManager();
         }
 
+        // Rate Limiter
+        this.limiter = new RateLimiter(6); // 6 RPS (safe under 7 RPS limit)
+
         // State
         /**
          * @type {Object.<string, {status: string, responseTime: number|null, lastCheck: number|null, errorMessage: string|null, since: number}>}
@@ -141,6 +146,63 @@ class AmoCRMMonitor {
     }
 
     // --- Core Methods ---
+
+    /**
+     * Helper to execute axios requests with rate limiting
+     * @param {Object} config - Axios config
+     * @returns {Promise<Object>} - Axios response
+     */
+    async request(config, retryCount = 0) {
+        try {
+            const response = await this.limiter.execute(() => axios(config));
+
+            // Check for HTTP 401 (Unauthorized)
+            // ONLY trigger refresh if the request actually had an Authorization header
+            const hasAuthHeader = config.headers && (config.headers['Authorization'] || config.headers['authorization']);
+
+            if (response.status === 401 && hasAuthHeader && retryCount === 0) {
+                logger.warn(`Received 401 response for client ${this.clientId}. Attempting proactive token refresh...`);
+                const newToken = await this.tokenManager.refreshToken();
+
+                const updatedConfig = { ...config };
+                updatedConfig.headers = {
+                    ...updatedConfig.headers,
+                    'Authorization': `Bearer ${newToken}`
+                };
+
+                logger.info(`Token refreshed successfully after 401 response for ${this.clientId}. Retrying request...`);
+                return await this.request(updatedConfig, retryCount + 1);
+            }
+
+            return response;
+        } catch (error) {
+            // Handle HTTP 401 (Unauthorized) errors
+            const hasAuthHeader = config.headers && (config.headers['Authorization'] || config.headers['authorization']);
+
+            if (error?.response?.status === 401 && hasAuthHeader && retryCount === 0) {
+                logger.warn(`Received 401 error for client ${this.clientId}. Attempting proactive token refresh...`);
+                try {
+                    const newToken = await this.tokenManager.refreshToken();
+
+                    const updatedConfig = { ...config };
+                    updatedConfig.headers = {
+                        ...updatedConfig.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
+
+                    logger.info(`Token refreshed successfully after 401 error for ${this.clientId}. Retrying request...`);
+                    return await this.request(updatedConfig, retryCount + 1);
+                } catch (refreshError) {
+                    logger.error(`Proactive token refresh failed for ${this.clientId}`, {
+                        error: refreshError.message,
+                        originalError: error.message
+                    });
+                    throw error;
+                }
+            }
+            throw error;
+        }
+    }
 
     /**
      * Add a status change listener

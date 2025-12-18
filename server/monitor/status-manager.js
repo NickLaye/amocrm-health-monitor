@@ -48,6 +48,15 @@ class StatusManager {
                 };
             }
             if (httpStatus >= 400) {
+                // Specialized handling for WEB check: 401 is expected on the login page
+                if (checkType === 'WEB' && httpStatus === 401) {
+                    return {
+                        status: STATUS.UP,
+                        reason: 'ok',
+                        message: `HTTP ${httpStatus} (Login Page)`
+                    };
+                }
+
                 return {
                     status: STATUS.WARNING,
                     reason: 'http_4xx',

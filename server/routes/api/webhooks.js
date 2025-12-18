@@ -17,10 +17,17 @@ router.post('/callback', asyncHandler(async (req, res) => {
         return;
     }
 
+    logger.debug('Incoming webhook:', {
+        clientId,
+        query: req.query,
+        body: req.body,
+        headers: req.headers['content-type']
+    });
+
     const handled = monitor.handleWebhookEvent(req.body || {}, clientId);
 
     if (!handled) {
-        logger.debug('Webhook callback received but no pending DP checks');
+        logger.debug('Webhook callback received but no pending DP checks or match failed');
     }
 
     res.json({

@@ -132,13 +132,13 @@ class TokenManager {
     const tokens = {
       access_token: accessToken,
       refresh_token: refreshToken,
-      expires_at: Math.floor(Date.now() / 1000) + 86400,
+      expires_at: 0, // Force initial refresh to verify tokens
       token_type: 'Bearer',
-      expires_in: 86400,
+      expires_in: 0,
     };
 
     this.saveTokens(tokens);
-    this.logger.info('Tokens initialized from provided configuration');
+    this.logger.info('Tokens initialized from provided configuration (forcing initial refresh)');
     return true;
   }
 

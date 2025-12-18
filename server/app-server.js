@@ -78,6 +78,7 @@ class AppServer {
         this.app.use(cors());
         this.app.use(compression());
         this.app.use(express.json());
+        this.app.use(express.urlencoded({ extended: true }));
     }
 
     setupAuthMiddleware() {
@@ -139,15 +140,36 @@ class AppServer {
 
         this.authBypassPaths = new Set([
             '/health',
+            '/api/health',
             '/api/metrics',
             '/api/webhooks/mattermail',
-            // Add others if needed
+            '/api/webhook/callback',
+            '/api/webhooks/callback',
+            '/api/stream',
+            '/api/stream/token',
+            '/api/config'
         ]);
 
         this.app.use((req, res, next) => {
-            if (this.authBypassPaths.has(req.path)) {
+            const url = req.originalUrl || req.url;
+            const path = url.split('?')[0];
+
+            // Check for exact path match or if it's one of the bypass routes
+            if (this.authBypassPaths.has(path)) {
                 return next();
             }
+
+            // Fallback checking for common patterns
+            const isBypass = Array.from(this.authBypassPaths).some(bp =>
+                path === bp || path.endsWith(bp) || (path.startsWith(bp) && (path[bp.length] === '/' || path[bp.length] === undefined))
+            );
+
+            if (isBypass) {
+                this.logger.debug(`Bypassing auth for: ${path}`);
+                return next();
+            }
+
+            this.logger.debug(`Checking auth for: ${path}`);
 
             // Apply brute-force protection before authentication check
             authLimiter(req, res, (err) => {
@@ -196,9 +218,13 @@ class AppServer {
             ipv6Subnet: rateLimitIpv6Subnet
         });
 
-        // Apply rate limiter only to API routes (exclude health check)
+        // Apply rate limiter only to API routes (exclude health, stream, and webhooks)
         this.app.use('/api/', (req, res, next) => {
-            if (req.path === '/health') {
+            const isHealth = req.path === '/health';
+            const isSSE = req.path.includes('stream') || req.path.includes('config');
+            const isWebhook = req.path.includes('webhook');
+
+            if (isHealth || isSSE || isWebhook) {
                 return next();
             }
             apiLimiter(req, res, next);
@@ -228,7 +254,7 @@ class AppServer {
                 this.logger.info(`Serving static files from: ${buildPath}`);
                 this.app.use(express.static(buildPath));
 
-                this.app.get('*', (req, res) => {
+                this.app.get(/.*/, (req, res) => {
                     res.sendFile(path.join(buildPath, 'index.html'));
                 });
             } else {

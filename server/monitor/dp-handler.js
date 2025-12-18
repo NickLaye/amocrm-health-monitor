@@ -60,20 +60,19 @@ class DPHandler {
      */
     async findDpContact(accessToken, name) {
         try {
-            const response = await axios.get(
-                `https://${this.domain}/api/v4/contacts`,
-                {
-                    params: {
-                        query: name,
-                        limit: 1
-                    },
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    },
-                    timeout: this.dpRequestTimeout,
-                    validateStatus: status => status < 500
-                }
-            );
+            const response = await this.request({
+                method: 'get',
+                url: `https://${this.domain}/api/v4/contacts`,
+                params: {
+                    query: name,
+                    limit: 1
+                },
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                timeout: this.dpRequestTimeout,
+                validateStatus: status => status < 500
+            });
 
             const contacts = response?.data?._embedded?.contacts || [];
             return contacts.length > 0 ? contacts[0] : null;
@@ -107,18 +106,17 @@ class DPHandler {
                 ];
             }
 
-            const response = await axios.post(
-                `https://${this.domain}/api/v4/contacts`,
-                [contactPayload],
-                {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    timeout: this.dpRequestTimeout,
-                    validateStatus: status => status < 500
-                }
-            );
+            const response = await this.request({
+                method: 'post',
+                url: `https://${this.domain}/api/v4/contacts`,
+                data: [contactPayload],
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: this.dpRequestTimeout,
+                validateStatus: status => status < 500
+            });
 
             const created = response?.data?._embedded?.contacts?.[0];
             if (!created || !created.id) {
@@ -156,18 +154,17 @@ class DPHandler {
             ]
         };
 
-        await axios.patch(
-            `https://${this.domain}/api/v4/contacts/${contactId}`,
-            payload,
-            {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: this.dpRequestTimeout,
-                validateStatus: status => status < 500
-            }
-        );
+        await this.request({
+            method: 'patch',
+            url: `https://${this.domain}/api/v4/contacts/${contactId}`,
+            data: payload,
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            },
+            timeout: this.dpRequestTimeout,
+            validateStatus: status => status < 500
+        });
     }
 
     /**
