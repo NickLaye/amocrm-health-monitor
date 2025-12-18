@@ -217,12 +217,14 @@ jobs:
                   if sudo grep -q "location = /health" /etc/nginx/sites-available/amohealth; then
                     echo "✓ Using exact match (location = /health) - highest priority"
                     # Verify it's before location /
-                    health_line=$(sudo grep -n "location = /health" /etc/nginx/sites-available/amohealth | cut -d: -f1)
-                    root_line=$(sudo grep -n "^[[:space:]]*location / {" /etc/nginx/sites-available/amohealth | cut -d: -f1)
+                    health_line=$(sudo grep -n "location = /health" /etc/nginx/sites-available/amohealth | head -1 | cut -d: -f1)
+                    root_line=$(sudo grep -n "^[[:space:]]*location / {" /etc/nginx/sites-available/amohealth | head -1 | cut -d: -f1)
                     if [ -n "$health_line" ] && [ -n "$root_line" ] && [ "$health_line" -lt "$root_line" ]; then
                       echo "✓ Health location is before location / (line $health_line vs $root_line)"
                     else
-                      echo "⚠ WARNING: Health location may be after location /"
+                      echo "⚠ WARNING: Health location may be after location / (health: ${health_line:-not found}, root: ${root_line:-not found})"
+                      echo "Full location block order:"
+                      sudo grep -n "^[[:space:]]*location" /etc/nginx/sites-available/amohealth || true
                     fi
                   elif sudo grep -q "location ^~ /health" /etc/nginx/sites-available/amohealth; then
                     echo "✓ Using prefix match with priority (location ^~ /health)"
@@ -238,6 +240,10 @@ jobs:
                 # Check for any other server blocks that might interfere
                 echo "Checking for other server blocks:"
                 sudo grep -n "server_name.*amohealth" /etc/nginx/sites-enabled/* 2>/dev/null || echo "No other server blocks found"
+                
+                # Show full location order for debugging
+                echo "All location blocks in order:"
+                sudo grep -n "^[[:space:]]*location" /etc/nginx/sites-available/amohealth || true
                 
                 # Check if static /health file exists (would interfere)
                 if [ -d "client-build" ] && [ -f "client-build/health" ]; then
