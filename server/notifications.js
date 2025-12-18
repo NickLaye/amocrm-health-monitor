@@ -540,7 +540,12 @@ class NotificationService {
   }
 
   _formatClientTag(clientId) {
-    return clientId && clientId !== 'default' ? `[${clientId}] ` : '';
+    if (!clientId || clientId === 'default') {
+      return '';
+    }
+    const client = clientRegistry.getClient(clientId);
+    const tag = client?.amo?.domain || client?.label || clientId;
+    return `[${tag}] `;
   }
 
   _resolveNotificationConfig(clientId = 'default') {
