@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">68.42% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>13/19</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">68.42% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>13/19</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -129,9 +129,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -161,15 +161,12 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -178,21 +175,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
+<span class="cline-any cline-yes">48x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Monitor Modules Index
  * Re-exports all monitor sub-modules for convenient importing
  */
 &nbsp;
-const DPHandler = <span class="cstat-no" title="statement not covered" >require('./dp-handler');</span>
-const HealthChecks = <span class="cstat-no" title="statement not covered" >require('./health-checks');</span>
-const StatusManager = <span class="cstat-no" title="statement not covered" >require('./status-manager');</span>
+const DPHandler = require('./dp-handler');
+const HealthChecks = require('./health-checks');
+const StatusManager = require('./status-manager');
 &nbsp;
 /**
  * Apply mixin methods to a class prototype
@@ -222,12 +222,12 @@ function <span class="fstat-no" title="function not covered" >applyAllMixins(</s
 <span class="cstat-no" title="statement not covered" >    applyMixin(targetClass, StatusManager);</span>
 }
 &nbsp;
-const AmoCRMMonitor = <span class="cstat-no" title="statement not covered" >require('./amo-crm-monitor');</span>
+const AmoCRMMonitor = require('./amo-crm-monitor');
 &nbsp;
 // Create default instance for backward compatibility
-const defaultMonitor = <span class="cstat-no" title="statement not covered" >new AmoCRMMonitor();</span>
+const defaultMonitor = new AmoCRMMonitor();
 &nbsp;
-<span class="cstat-no" title="statement not covered" >module.exports = {</span>
+module.exports = {
     DPHandler,
     HealthChecks,
     StatusManager,
@@ -239,13 +239,13 @@ const defaultMonitor = <span class="cstat-no" title="statement not covered" >new
 };
 &nbsp;
 // Assign default export to match expected require behavior in tests: require('../monitor') -&gt; instance
-<span class="cstat-no" title="statement not covered" >module.exports = defaultMonitor;</span>
-<span class="cstat-no" title="statement not covered" >module.exports.AmoCRMMonitor = AmoCRMMonitor;</span>
-<span class="cstat-no" title="statement not covered" >module.exports.DPHandler = DPHandler;</span>
-<span class="cstat-no" title="statement not covered" >module.exports.HealthChecks = HealthChecks;</span>
-<span class="cstat-no" title="statement not covered" >module.exports.StatusManager = StatusManager;</span>
-<span class="cstat-no" title="statement not covered" >module.exports.applyMixin = applyMixin;</span>
-<span class="cstat-no" title="statement not covered" >module.exports.applyAllMixins = applyAllMixins;</span>
+module.exports = defaultMonitor;
+module.exports.AmoCRMMonitor = AmoCRMMonitor;
+module.exports.DPHandler = DPHandler;
+module.exports.HealthChecks = HealthChecks;
+module.exports.StatusManager = StatusManager;
+module.exports.applyMixin = applyMixin;
+module.exports.applyAllMixins = applyAllMixins;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -253,7 +253,7 @@ const defaultMonitor = <span class="cstat-no" title="statement not covered" >new
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-18T17:58:13.443Z
+                at 2025-12-18T18:16:41.293Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
