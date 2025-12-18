@@ -152,10 +152,28 @@ jobs:
             
             # Update Nginx configuration if changed
             if [ -f "nginx.conf" ]; then
+              echo "Updating Nginx configuration..."
               sudo cp nginx.conf /etc/nginx/sites-available/amohealth
               sudo ln -sf /etc/nginx/sites-available/amohealth /etc/nginx/sites-enabled/
-              sudo nginx -t && sudo systemctl reload nginx
-              echo "✓ Nginx configuration updated"
+              
+              # Ensure /health file doesn't exist in static directory (would interfere with proxy)
+              if [ -d "client-build" ] && [ -f "client-build/health" ]; then
+                echo "⚠ Removing conflicting /health file from static directory"
+                rm -f client-build/health
+              fi
+              
+              # Test configuration
+              if sudo nginx -t; then
+                echo "✓ Nginx configuration test passed"
+                sudo systemctl reload nginx
+                echo "✓ Nginx reloaded"
+                
+                # Verify health endpoint is accessible via nginx locally (after app restart)
+                echo "Health endpoint will be tested after app restart"
+              else
+                echo "✗ Nginx configuration test failed!"
+                exit 1
+              fi
             fi
             
             # Restart application with PM2
