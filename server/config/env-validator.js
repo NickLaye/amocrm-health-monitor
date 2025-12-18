@@ -17,10 +17,7 @@ const REQUIRED_ENV_VARS = [
   'AMOCRM_CLIENT_SECRET',
   'AMOCRM_REDIRECT_URI',
   'AMOCRM_REFRESH_TOKEN',
-  'MATTERMOST_WEBHOOK_URL',
-  // Test entity for POST API checks
-  'AMOCRM_TEST_DEAL_ID',
-  'AMOCRM_TEST_FIELD_ID'
+  'MATTERMOST_WEBHOOK_URL'
 ];
 
 /**
@@ -29,7 +26,9 @@ const REQUIRED_ENV_VARS = [
 const OPTIONAL_ENV_VARS = {
   CHECK_INTERVAL: DEFAULTS.CHECK_INTERVAL,
   TIMEOUT_THRESHOLD: DEFAULTS.TIMEOUT_THRESHOLD,
-  PORT: DEFAULTS.PORT
+  PORT: DEFAULTS.PORT,
+  AMOCRM_TEST_DEAL_ID: null, // Made optional
+  AMOCRM_TEST_FIELD_ID: null // Made optional
 };
 
 /**
@@ -92,6 +91,8 @@ function logConfiguration() {
   envLogger.info(`  • Check Interval: ${getIntEnvOrDefault('CHECK_INTERVAL', DEFAULTS.CHECK_INTERVAL)}ms`);
   envLogger.info(`  • Timeout Threshold: ${getIntEnvOrDefault('TIMEOUT_THRESHOLD', DEFAULTS.TIMEOUT_THRESHOLD)}ms`);
   envLogger.info(`  • Server Port: ${getIntEnvOrDefault('PORT', DEFAULTS.PORT)}`);
+  envLogger.info(`  • Test Deal ID: ${getEnvOrDefault('AMOCRM_TEST_DEAL_ID', 'Not set')}`);
+  envLogger.info(`  • Test Field ID: ${getEnvOrDefault('AMOCRM_TEST_FIELD_ID', 'Not set')}`);
   envLogger.info('');
 }
 
@@ -101,4 +102,3 @@ module.exports = {
   getIntEnvOrDefault,
   logConfiguration
 };
-

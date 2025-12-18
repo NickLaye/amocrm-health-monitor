@@ -88,56 +88,6 @@ class AppServer {
         });
 
         // Determine paths that bypass auth
-        // Note: In original file authBypassPaths wasn't explicitly defined in the snippet 
-        // but referenced. I'll define it here based on common sense/previous context or 
-        // copy the logic if it was present. 
-        // Looking at the file content I read earlier (Step 102), line 78 uses `authBypassPaths`.
-        // Wait, line 78 says `if (authBypassPaths.has(req.path))`. 
-        // I missed where `authBypassPaths` was defined in Step 102 output.
-        // Ah, lines 48 said "// ... imports remain the same". 
-        // I suspect `authBypassPaths` was instantiated somewhere I missed or in the hidden block? 
-        // No, I read lines 1-260. 
-        // Let me check line 46-50 of my read output.
-        // Line 46: `const authLimiter = require('./middleware/auth-limiter');`
-        // Line 48: `// ... imports remain the same` <- Wait, line 48 in my output is just a comment I copied?
-        // NO! The `view_file` output in Step 102 shows `// ... imports remain the same` at line 48.
-        // This means the file on disk HAS that comment. The definition is missing in the file?!
-        // OR `server/index.js` relies on a global? Unlikely.
-        // Let me re-read `server/index.js` closely around line 78.
-        // Line 78: `if (authBypassPaths.has(req.path))`
-        // I don't see `const authBypassPaths = ...` in the file I read in Step 102.
-        // This is strange. Maybe it was defined in a line I missed or the file has it and I'm blind.
-        // Let me grep for `authBypassPaths`.
-
-        // Actually, looking at Step 102 output again...
-        // Lines 46-50:
-        // 46: const authLimiter = require('./middleware/auth-limiter');
-        // 47: 
-        // 48: // ... imports remain the same  <-- THIS IS A COMMENT IN THE FILE ITSELF?
-        // 49: 
-        // 50: // Security middleware - Helmet.js
-
-        // If the file literally contains `// ... imports remain the same`, then the code I'm refactoring is BROKEN or pseudo-code?
-        // But Step 102 said "The above content shows the entire, complete file contents".
-        // If line 78 references `authBypassPaths` and it's not defined, the server would crash.
-        // But the server is running?
-        // Maybe `authBypassPaths` is defined in another file and imported? No, it's used directly.
-
-        // HYPOTHESIS: The `server/index.js` file I viewed in Step 54 (wait, that was App.jsx) or Step 102 IS incomplete or modified by me?
-        // No, I haven't modified it yet.
-        // Maybe the user modified it before I came?
-        // Or maybe `view_file` truncated it? No, it says "Total Lines: 260 ... Showing lines 1 to 260".
-
-        // Wait, if I look at line 48: `// ... imports remain the same`.
-        // It looks like `server/index.js` itself might have been edited by someone who put that comment there as a placeholder?
-        // But the user says "The user's current state... Active Document: server/index.js".
-
-        // I MUST verify if `authBypassPaths` exists.
-        // I will assume for now it WAS there and I just need to define it.
-        // Usually it includes `/health`, `/api/metrics`, `/api/webhooks/mattermail`.
-
-        // I'll add a `grep` check just to be sane.
-
         this.authBypassPaths = new Set([
             '/health',
             '/api/health',
