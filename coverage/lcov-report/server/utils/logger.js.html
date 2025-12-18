@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.89% </span>
+                <span class="strong">72.97% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>34/37</span>
+                <span class='fraction'>27/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">68.18% </span>
+                <span class="strong">59.09% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/22</span>
+                <span class='fraction'>13/22</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">88.88% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>8/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.89% </span>
+                <span class="strong">72.97% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>34/37</span>
+                <span class='fraction'>27/37</span>
             </div>
         
             
@@ -284,19 +284,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -389,7 +389,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -482,20 +482,20 @@ const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.splat(),
-  winston.format.printf(({ timestamp, level, message, context, ...meta }) =&gt; {
-    let log = `[${timestamp}] [${level.toUpperCase()}]`;
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (context) {
-      log += ` [${context}]`;
+  winston.format.printf(<span class="fstat-no" title="function not covered" >({</span> timestamp, level, message, context, ...meta }) =&gt; {
+    let log = <span class="cstat-no" title="statement not covered" >`[${timestamp}] [${level.toUpperCase()}]`;</span>
+<span class="cstat-no" title="statement not covered" >    if (context) {</span>
+<span class="cstat-no" title="statement not covered" >      log += ` [${context}]`;</span>
     }
-    log += ` ${message}`;
+<span class="cstat-no" title="statement not covered" >    log += ` ${message}`;</span>
     
     // Add metadata if present
-    const metaKeys = Object.keys(meta);
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (metaKeys.length &gt; 0) {
+    const metaKeys = <span class="cstat-no" title="statement not covered" >Object.keys(meta);</span>
+<span class="cstat-no" title="statement not covered" >    if (metaKeys.length &gt; 0) {</span>
 <span class="cstat-no" title="statement not covered" >      log += ` ${JSON.stringify(meta)}`;</span>
     }
     
-    return log;
+<span class="cstat-no" title="statement not covered" >    return log;</span>
   })
 );
 &nbsp;
@@ -667,7 +667,7 @@ module.exports = {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-18T18:24:18.509Z
+                at 2025-12-18T21:30:50.945Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

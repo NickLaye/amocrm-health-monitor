@@ -5,13 +5,13 @@
 const { STATUS, CHECK_TYPES, DEFAULT_CLIENT_ID } = require('../config/constants');
 
 // Mock axios with all required methods
-const mockAxios = {
-  get: jest.fn(),
-  post: jest.fn(),
-  patch: jest.fn(),
-  put: jest.fn(),
-  delete: jest.fn()
-};
+const mockAxios = jest.fn();
+mockAxios.get = jest.fn();
+mockAxios.post = jest.fn();
+mockAxios.patch = jest.fn();
+mockAxios.put = jest.fn();
+mockAxios.delete = jest.fn();
+mockAxios.create = jest.fn(() => mockAxios);
 
 jest.mock('axios', () => mockAxios);
 
