@@ -140,12 +140,20 @@ jobs:
             mv deploy current
             cd current
             
-            # Install production dependencies
+            # Install production dependencies using npm ci for reliable installs
             echo "Installing production dependencies..."
-            npm install --production --no-audit --no-fund
+            echo "Current directory: $(pwd)"
+            echo "Checking package.json and package-lock.json:"
+            ls -la package.json package-lock.json 2>/dev/null || echo "Warning: package files not found"
+            
+            npm ci --production --no-audit --no-fund
             if [ $? -ne 0 ]; then
-              echo "✗ Failed to install dependencies"
-              exit 1
+              echo "✗ Failed to install dependencies with npm ci, trying npm install..."
+              npm install --production --no-audit --no-fund
+              if [ $? -ne 0 ]; then
+                echo "✗ Failed to install dependencies"
+                exit 1
+              fi
             fi
             echo "✓ Dependencies installed successfully"
             
@@ -154,6 +162,15 @@ jobs:
               echo "✗ node_modules directory not found"
               exit 1
             fi
+            
+            # Verify dotenv module exists (critical for startup)
+            if [ ! -d "node_modules/dotenv" ]; then
+              echo "✗ dotenv module not found in node_modules!"
+              echo "Installed modules:"
+              ls node_modules/ | head -20
+              exit 1
+            fi
+            echo "✓ dotenv module verified"
             
             # Copy .env file (should exist on server)
             if [ -f "../.env" ]; then
@@ -230,6 +247,17 @@ jobs:
               ls -la
               exit 1
             fi
+            
+            # Verify we can require dotenv before starting
+            echo "Verifying dotenv module can be loaded..."
+            node -e "require('dotenv'); console.log('✓ dotenv module loads successfully')" || {
+              echo "✗ Failed to load dotenv module"
+              echo "Node version: $(node --version)"
+              echo "NPM version: $(npm --version)"
+              echo "Current directory: $(pwd)"
+              echo "node_modules/dotenv exists: $([ -d node_modules/dotenv ] && echo 'yes' || echo 'no')"
+              exit 1
+            }
             
             # Start PM2 with ecosystem config if available, otherwise start directly
             if [ -f "ecosystem.config.js" ]; then
