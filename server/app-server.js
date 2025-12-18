@@ -31,15 +31,12 @@ class AppServer {
 
     initialize() {
         this.validateAuthCredentials();
-        this.setupTrustProxy();
-        this.setupSecurityMiddleware();
-        this.setupBasicMiddleware();
         
-        // Health check MUST be registered FIRST as a route handler
-        // Register it directly using app.get() BEFORE any middleware that could intercept it
+        // Health check MUST be registered ABSOLUTELY FIRST, before ANY middleware
+        // Register it directly using app.get() BEFORE setupTrustProxy, security, basic middleware, etc.
         // This ensures it's processed before ANY other middleware or routes
         this.app.get('/health', (req, res) => {
-            this.logger.info('Health check endpoint called (FIRST handler)', { 
+            this.logger.info('Health check endpoint called (ABSOLUTE FIRST handler)', { 
                 url: req.url, 
                 method: req.method,
                 ip: req.ip,
@@ -53,7 +50,11 @@ class AppServer {
                 nodeVersion: process.version
             });
         });
-        this.logger.info('Health check endpoint registered at /health (FIRST route handler)');
+        this.logger.info('Health check endpoint registered at /health (ABSOLUTE FIRST route handler)');
+        
+        this.setupTrustProxy();
+        this.setupSecurityMiddleware();
+        this.setupBasicMiddleware();
         
         // Also register via setupHealthCheck for redundancy
         this.setupHealthCheck();
@@ -223,9 +224,15 @@ class AppServer {
             if (buildPath) {
                 this.logger.info(`Serving static files from: ${buildPath}`);
                 // Use a function to skip /health endpoint explicitly
+                // CRITICAL: This middleware MUST skip /health, otherwise it will intercept the route
                 this.app.use((req, res, next) => {
-                    // Skip /health endpoint - it's handled by setupHealthCheck
-                    if (req.path === '/health' || req.originalUrl === '/health') {
+                    // Extract path without query string for comparison
+                    const pathWithoutQuery = req.path || req.url.split('?')[0];
+                    const originalPath = req.originalUrl ? req.originalUrl.split('?')[0] : pathWithoutQuery;
+                    
+                    // Skip /health endpoint - it's handled by setupHealthCheck (registered FIRST)
+                    if (pathWithoutQuery === '/health' || originalPath === '/health' || req.url === '/health') {
+                        this.logger.debug('Static middleware skipping /health endpoint');
                         return next();
                     }
                     // Use express.static for all other requests
