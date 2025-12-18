@@ -177,13 +177,24 @@ jobs:
               # Test configuration
               if sudo nginx -t; then
                 echo "✓ Nginx configuration test passed"
+                echo "Reloading Nginx..."
                 sudo systemctl reload nginx
                 echo "✓ Nginx reloaded"
                 
-                # Verify health endpoint is accessible via nginx locally (after app restart)
-                echo "Health endpoint will be tested after app restart"
+                # Verify configuration was applied
+                echo "Verifying Nginx configuration..."
+                if sudo grep -q "location = /health" /etc/nginx/sites-available/amohealth; then
+                  echo "✓ Health check location found in Nginx config"
+                else
+                  echo "⚠ Health check location not found in Nginx config!"
+                fi
+                
+                # Wait a moment for nginx to fully reload
+                sleep 2
               else
                 echo "✗ Nginx configuration test failed!"
+                echo "Nginx config test output:"
+                sudo nginx -t 2>&1 || true
                 exit 1
               fi
             fi
@@ -239,6 +250,14 @@ jobs:
               if curl -f -s http://127.0.0.1:3001/health > /dev/null 2>&1; then
                 echo "✓ Local health check passed (attempt $i/6)"
                 local_check_passed=true
+                
+                # Also test via nginx locally if possible
+                echo "Testing health endpoint via local nginx..."
+                if curl -f -s http://127.0.0.1/health > /dev/null 2>&1 || curl -k -f -s https://127.0.0.1/health > /dev/null 2>&1; then
+                  echo "✓ Health endpoint accessible via nginx locally"
+                else
+                  echo "⚠ Health endpoint not accessible via nginx locally (may need external test)"
+                fi
                 break
               else
                 echo "⚠ Local health check failed (attempt $i/6), waiting 5 seconds..."
