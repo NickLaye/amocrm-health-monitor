@@ -455,7 +455,8 @@ describe('TokenManager', () => {
 
             manager.startAutoRefresh();
 
-            expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 60 * 60 * 1000);
+            // Auto-refresh now checks every 30 minutes instead of hourly
+            expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 30 * 60 * 1000);
         });
 
         test('should refresh token when expired during auto-refresh', async () => {

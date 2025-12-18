@@ -476,10 +476,27 @@ class AmoCRMMonitor {
             // Token Manager Init
             this.tokenManager.loadTokens();
             if (!this.tokenManager.currentTokens) {
-                await this.tokenManager.initializeFromEnv();
+                const initialized = await this.tokenManager.initializeFromEnv();
+                if (!initialized) {
+                    logger.warn('Failed to initialize tokens from environment');
+                }
             }
+
+            // Check if token is expired and refresh immediately if needed
+            if (this.tokenManager.currentTokens && this.tokenManager.isTokenExpired()) {
+                logger.info('Token expired at startup, refreshing immediately...');
+                try {
+                    await this.tokenManager.refreshToken();
+                    logger.info('Token refreshed successfully at startup');
+                } catch (error) {
+                    logger.error('Failed to refresh token at startup', error);
+                }
+            }
+
             this.tokenManager.startAutoRefresh();
-        } catch (e) { logger.error('Token manager init failed', e); }
+        } catch (e) { 
+            logger.error('Token manager init failed', e); 
+        }
 
         await this.runAllChecks();
         this.startDpWorker();
