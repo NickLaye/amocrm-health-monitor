@@ -106,7 +106,10 @@ class TokenManager {
     }
 
     if (!this.currentTokens && this.initialTokens?.refresh_token) {
-      this.initializeFromEnv();
+      const initialized = await this.initializeFromEnv();
+      if (!initialized) {
+        this.logger.warn('Failed to initialize tokens from environment');
+      }
     }
 
     if (!this.currentTokens) {
@@ -115,7 +118,22 @@ class TokenManager {
 
     if (this.isTokenExpired()) {
       this.logger.info('Token expired or expiring soon, refreshing...');
-      await this.refreshToken();
+      try {
+        await this.refreshToken();
+      } catch (error) {
+        this.logger.error('Failed to refresh expired token', error);
+        // If refresh fails, try to reinitialize from env if available
+        if (this.initialTokens?.refresh_token) {
+          this.logger.info('Attempting to reinitialize tokens from environment...');
+          const reinitialized = await this.initializeFromEnv();
+          if (reinitialized && this.isTokenExpired()) {
+            // If still expired after reinit, try one more refresh
+            await this.refreshToken();
+          }
+        } else {
+          throw error;
+        }
+      }
     }
 
     return this.currentTokens.access_token;
@@ -144,18 +162,38 @@ class TokenManager {
   }
 
   startAutoRefresh() {
+    // Check every 30 minutes instead of hourly for more proactive refresh
+    const checkInterval = 30 * 60 * 1000;
+    
     setInterval(async () => {
       try {
         if (this.isTokenExpired()) {
           this.logger.info('Auto-refreshing token...');
           await this.refreshToken();
+        } else {
+          // Log token status for debugging
+          const expiresAt = this.currentTokens?.expires_at;
+          if (expiresAt) {
+            const timeUntilExpiry = expiresAt * 1000 - Date.now();
+            const minutesUntilExpiry = Math.floor(timeUntilExpiry / 60000);
+            this.logger.debug(`Token still valid, expires in ${minutesUntilExpiry} minutes`);
+          }
         }
       } catch (error) {
         this.logger.error('Error in auto-refresh', error);
+        // Try to reinitialize if refresh fails
+        if (this.initialTokens?.refresh_token) {
+          try {
+            this.logger.info('Attempting to reinitialize tokens after auto-refresh failure...');
+            await this.initializeFromEnv();
+          } catch (initError) {
+            this.logger.error('Failed to reinitialize tokens after auto-refresh failure', initError);
+          }
+        }
       }
-    }, 60 * 60 * 1000);
+    }, checkInterval);
 
-    this.logger.info('Token auto-refresh started (checking every hour)');
+    this.logger.info(`Token auto-refresh started (checking every ${checkInterval / 60000} minutes)`);
   }
 }
 
