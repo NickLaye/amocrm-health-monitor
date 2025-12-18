@@ -183,11 +183,19 @@ jobs:
                 
                 # Verify configuration was applied
                 echo "Verifying Nginx configuration..."
-                if sudo grep -q "location = /health" /etc/nginx/sites-available/amohealth; then
+                if sudo grep -q "location.*/health" /etc/nginx/sites-available/amohealth; then
                   echo "✓ Health check location found in Nginx config"
+                  echo "Health check location details:"
+                  sudo grep -A 5 "location.*/health" /etc/nginx/sites-available/amohealth || true
                 else
                   echo "⚠ Health check location not found in Nginx config!"
+                  echo "Available locations in config:"
+                  sudo grep "location" /etc/nginx/sites-available/amohealth || true
                 fi
+                
+                # Check Nginx error log for any issues
+                echo "Checking Nginx error log (last 10 lines):"
+                sudo tail -10 /var/log/nginx/amocrm-health-error.log 2>/dev/null || echo "No error log found"
                 
                 # Wait a moment for nginx to fully reload
                 sleep 2
