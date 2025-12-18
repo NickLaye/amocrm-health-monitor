@@ -179,14 +179,31 @@ jobs:
             
             pm2 save
             
-            echo "Waiting 5 seconds for PM2 to start..."
-            sleep 5
+            echo "Waiting 10 seconds for PM2 to start..."
+            sleep 10
             
             echo "PM2 status after restart:"
             pm2 list
             
             echo "PM2 logs:"
             pm2 logs amocrm-health-monitor --lines 20 --nostream || true
+            
+            # Check local health endpoint to ensure app is ready
+            echo "Checking local health endpoint..."
+            for i in {1..6}; do
+              if curl -f -s http://127.0.0.1:3001/health > /dev/null 2>&1; then
+                echo "✓ Local health check passed (attempt $i/6)"
+                break
+              else
+                echo "⚠ Local health check failed (attempt $i/6), waiting 5 seconds..."
+                if [ $i -eq 6 ]; then
+                  echo "✗ Local health check failed after 6 attempts"
+                  pm2 logs amocrm-health-monitor --lines 50 --nostream || true
+                else
+                  sleep 5
+                fi
+              fi
+            done
           ENDSSH
 
       - name: Health check
