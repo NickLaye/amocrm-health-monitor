@@ -244,12 +244,19 @@ describe('TokenManager', () => {
             expect(result).toBe('new-access-token');
             expect(axios.post).toHaveBeenCalledWith(
                 'https://test.amocrm.ru/oauth2/access_token',
+                expect.stringContaining('grant_type=refresh_token'),
                 expect.objectContaining({
-                    grant_type: 'refresh_token',
-                    refresh_token: 'old-refresh'
-                }),
-                expect.any(Object)
+                    headers: expect.objectContaining({
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    })
+                })
             );
+            // Проверяем, что строка содержит необходимые параметры
+            const callArgs = axios.post.mock.calls[0];
+            expect(callArgs[1]).toContain('grant_type=refresh_token');
+            expect(callArgs[1]).toContain('refresh_token=old-refresh');
+            expect(callArgs[1]).toContain('client_id=test-client-id');
+            expect(callArgs[1]).toContain('client_secret=test-secret');
             expect(manager.currentTokens.access_token).toBe('new-access-token');
         });
 
