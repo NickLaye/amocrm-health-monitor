@@ -37,8 +37,9 @@ class AppServer {
         this.setupAuthMiddleware();
         this.setupRateLimiting();
         this.setupRoutes();
-        this.setupStaticServing();
+        // Health check MUST be registered before static files to avoid conflicts
         this.setupHealthCheck();
+        this.setupStaticServing();
         this.setupSPACatchAll();
         this.setupErrorHandling();
 
@@ -207,12 +208,14 @@ class AppServer {
     }
 
     setupHealthCheck() {
-        // Health check endpoint - must be after static files but before catch-all SPA route
+        // Health check endpoint - MUST be registered BEFORE static files
+        // Express processes routes in registration order, and static middleware can intercept requests
         this.app.get('/health', (req, res) => {
             this.logger.debug('Health check endpoint called', { 
                 url: req.url, 
                 method: req.method,
-                ip: req.ip 
+                ip: req.ip,
+                originalUrl: req.originalUrl
             });
             res.json({ 
                 status: 'ok', 
@@ -221,7 +224,7 @@ class AppServer {
                 nodeVersion: process.version
             });
         });
-        this.logger.info('Health check endpoint registered at /health');
+        this.logger.info('Health check endpoint registered at /health (before static files)');
     }
 
     setupSPACatchAll() {
