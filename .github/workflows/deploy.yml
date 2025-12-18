@@ -193,17 +193,31 @@ jobs:
             echo "Files in current directory:"
             ls -la
             echo ""
+            echo "Checking server directory:"
+            ls -la server/ | head -10 || echo "server/ directory not found"
+            echo ""
+            echo "Checking node_modules:"
+            ls -d node_modules 2>/dev/null && echo "node_modules exists" || echo "node_modules not found"
+            echo ""
             echo "PM2 status before restart:"
             pm2 list
             
             pm2 delete amocrm-health-monitor || true
             
+            # Verify server/index.js exists
+            if [ ! -f "server/index.js" ]; then
+              echo "✗ server/index.js not found!"
+              echo "Current directory contents:"
+              ls -la
+              exit 1
+            fi
+            
             # Start PM2 with ecosystem config if available, otherwise start directly
             if [ -f "ecosystem.config.js" ]; then
-              echo "Starting with ecosystem.config.js"
+              echo "Starting with ecosystem.config.js from $(pwd)"
               pm2 start ecosystem.config.js
             else
-              echo "Starting with direct PM2 command"
+              echo "Starting with direct PM2 command from $(pwd)"
               pm2 start server/index.js --name amocrm-health-monitor --time
             fi
             
