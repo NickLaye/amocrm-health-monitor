@@ -38,6 +38,8 @@ class AppServer {
         this.setupRateLimiting();
         this.setupRoutes();
         this.setupStaticServing();
+        this.setupHealthCheck();
+        this.setupSPACatchAll();
         this.setupErrorHandling();
 
         return this.app;
@@ -183,11 +185,6 @@ class AppServer {
 
     setupRoutes() {
         this.app.use('/api', apiRouter);
-
-        // Health check endpoint
-        this.app.get('/health', (req, res) => {
-            res.json({ status: 'ok', timestamp: Date.now() });
-        });
     }
 
     setupStaticServing() {
@@ -203,12 +200,34 @@ class AppServer {
             if (buildPath) {
                 this.logger.info(`Serving static files from: ${buildPath}`);
                 this.app.use(express.static(buildPath));
+            } else {
+                this.logger.warn('No client build directory found; skipping static asset hosting.');
+            }
+        }
+    }
 
+    setupHealthCheck() {
+        // Health check endpoint - must be after static files but before catch-all SPA route
+        this.app.get('/health', (req, res) => {
+            res.json({ status: 'ok', timestamp: Date.now() });
+        });
+    }
+
+    setupSPACatchAll() {
+        // SPA catch-all route - must be last, after health check
+        if (process.env.NODE_ENV === 'production') {
+            const candidatePaths = [
+                path.join(__dirname, '../client/dist'),
+                path.join(__dirname, '../client-build'),
+                path.join(__dirname, '../client/build'),
+            ];
+
+            const buildPath = candidatePaths.find((candidate) => fs.existsSync(candidate));
+
+            if (buildPath) {
                 this.app.get(/.*/, (req, res) => {
                     res.sendFile(path.join(buildPath, 'index.html'));
                 });
-            } else {
-                this.logger.warn('No client build directory found; skipping static asset hosting.');
             }
         }
     }
