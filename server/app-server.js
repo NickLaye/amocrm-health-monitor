@@ -34,13 +34,13 @@ class AppServer {
         this.setupTrustProxy();
         this.setupSecurityMiddleware();
         this.setupBasicMiddleware();
-        this.setupAuthMiddleware();
-        this.setupRateLimiting();
         
-        // Health check MUST be registered FIRST, before all other routes
-        // This ensures it's never intercepted by static files or catch-all routes
+        // Health check MUST be registered FIRST, before auth, routes, static files, and catch-all
+        // This ensures it's never intercepted by any middleware or routes
         this.setupHealthCheck();
         
+        this.setupAuthMiddleware();
+        this.setupRateLimiting();
         this.setupRoutes();
         this.setupStaticServing();
         this.setupSPACatchAll();
@@ -219,14 +219,15 @@ class AppServer {
     }
 
     setupHealthCheck() {
-        // Health check endpoint - MUST be registered BEFORE static files
-        // Express processes routes in registration order, and static middleware can intercept requests
+        // Health check endpoint - MUST be registered FIRST, before ALL middleware and routes
+        // Express processes routes in registration order, so this ensures /health is handled first
         this.app.get('/health', (req, res) => {
-            this.logger.debug('Health check endpoint called', { 
+            this.logger.info('Health check endpoint called', { 
                 url: req.url, 
                 method: req.method,
                 ip: req.ip,
-                originalUrl: req.originalUrl
+                originalUrl: req.originalUrl,
+                path: req.path
             });
             res.json({ 
                 status: 'ok', 
@@ -235,7 +236,7 @@ class AppServer {
                 nodeVersion: process.version
             });
         });
-        this.logger.info('Health check endpoint registered at /health (before static files)');
+        this.logger.info('Health check endpoint registered at /health (FIRST route, before all middleware)');
     }
 
     setupSPACatchAll() {
