@@ -186,9 +186,14 @@ jobs:
               sudo ln -sf /etc/nginx/sites-available/amohealth /etc/nginx/sites-enabled/
               
               # Ensure /health file doesn't exist in static directory (would interfere with proxy)
-              if [ -d "client-build" ] && [ -f "client-build/health" ]; then
-                echo "⚠ Removing conflicting /health file from static directory"
-                rm -f client-build/health
+              if [ -d "client-build" ]; then
+                if [ -f "client-build/health" ]; then
+                  echo "⚠ Removing conflicting /health file from static directory"
+                  rm -f client-build/health
+                fi
+                # Also check for health.html or health/index.html
+                rm -f client-build/health.html client-build/health/index.html 2>/dev/null || true
+                echo "✓ Static directory checked for conflicting health files"
               fi
               
               # Test configuration
@@ -203,16 +208,41 @@ jobs:
                 if sudo grep -q "location.*/health" /etc/nginx/sites-available/amohealth; then
                   echo "✓ Health check location found in Nginx config"
                   echo "Health check location details:"
-                  sudo grep -A 5 "location.*/health" /etc/nginx/sites-available/amohealth || true
+                  sudo grep -A 8 "location.*/health" /etc/nginx/sites-available/amohealth || true
+                  
+                  # Check if it's exact match or prefix match
+                  if sudo grep -q "location = /health" /etc/nginx/sites-available/amohealth; then
+                    echo "✓ Using exact match (location = /health) - highest priority"
+                  elif sudo grep -q "location ^~ /health" /etc/nginx/sites-available/amohealth; then
+                    echo "✓ Using prefix match with priority (location ^~ /health)"
+                  else
+                    echo "⚠ Using regular prefix match (location /health) - may be overridden"
+                  fi
                 else
                   echo "⚠ Health check location not found in Nginx config!"
                   echo "Available locations in config:"
                   sudo grep "location" /etc/nginx/sites-available/amohealth || true
                 fi
                 
+                # Check if static /health file exists (would interfere)
+                if [ -d "client-build" ] && [ -f "client-build/health" ]; then
+                  echo "⚠ WARNING: Static /health file exists in client-build - this will interfere!"
+                  rm -f client-build/health
+                  echo "✓ Removed conflicting static file"
+                fi
+                
                 # Check Nginx error log for any issues
                 echo "Checking Nginx error log (last 10 lines):"
                 sudo tail -10 /var/log/nginx/amocrm-health-error.log 2>/dev/null || echo "No error log found"
+                
+                # Test health endpoint directly via nginx after reload
+                echo "Testing health endpoint via nginx (after reload)..."
+                sleep 1
+                if curl -f -s http://127.0.0.1/health > /dev/null 2>&1 || curl -k -f -s https://127.0.0.1/health > /dev/null 2>&1; then
+                  echo "✓ Health endpoint accessible via nginx immediately after reload"
+                else
+                  echo "⚠ Health endpoint not accessible via nginx (will retry after app restart)"
+                fi
                 
                 # Wait a moment for nginx to fully reload
                 sleep 2
