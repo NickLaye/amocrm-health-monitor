@@ -37,7 +37,8 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         files: ./coverage/lcov.info
-        fail_ci_if_error: true
+        fail_ci_if_error: false
+      continue-on-error: true
 
     - name: Install frontend dependencies
       run: cd client && npm install
