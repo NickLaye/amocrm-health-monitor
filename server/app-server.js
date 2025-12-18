@@ -35,31 +35,27 @@ class AppServer {
         this.setupSecurityMiddleware();
         this.setupBasicMiddleware();
         
-        // Health check MUST be registered FIRST using app.use with exact path match
+        // Health check MUST be registered FIRST as a route handler
+        // Register it directly using app.get() BEFORE any middleware that could intercept it
         // This ensures it's processed before ANY other middleware or routes
-        this.app.use('/health', (req, res, next) => {
-            // Extract path without query string
-            const path = req.path || req.url.split('?')[0];
-            // Only handle exact /health path (not /health/...)
-            if (path === '/health' || path === '') {
-                this.logger.info('Health check endpoint called via app.use', { 
-                    url: req.url, 
-                    method: req.method,
-                    ip: req.ip,
-                    originalUrl: req.originalUrl,
-                    path: req.path
-                });
-                return res.json({ 
-                    status: 'ok', 
-                    timestamp: Date.now(),
-                    uptime: process.uptime(),
-                    nodeVersion: process.version
-                });
-            }
-            next();
+        this.app.get('/health', (req, res) => {
+            this.logger.info('Health check endpoint called (FIRST handler)', { 
+                url: req.url, 
+                method: req.method,
+                ip: req.ip,
+                originalUrl: req.originalUrl,
+                path: req.path
+            });
+            res.json({ 
+                status: 'ok', 
+                timestamp: Date.now(),
+                uptime: process.uptime(),
+                nodeVersion: process.version
+            });
         });
+        this.logger.info('Health check endpoint registered at /health (FIRST route handler)');
         
-        // Also register as route for redundancy
+        // Also register via setupHealthCheck for redundancy
         this.setupHealthCheck();
         
         this.setupAuthMiddleware();
