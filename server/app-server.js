@@ -35,8 +35,31 @@ class AppServer {
         this.setupSecurityMiddleware();
         this.setupBasicMiddleware();
         
-        // Health check MUST be registered FIRST, before auth, routes, static files, and catch-all
-        // This ensures it's never intercepted by any middleware or routes
+        // Health check MUST be registered FIRST using app.use with exact path match
+        // This ensures it's processed before ANY other middleware or routes
+        this.app.use('/health', (req, res, next) => {
+            // Extract path without query string
+            const path = req.path || req.url.split('?')[0];
+            // Only handle exact /health path (not /health/...)
+            if (path === '/health' || path === '') {
+                this.logger.info('Health check endpoint called via app.use', { 
+                    url: req.url, 
+                    method: req.method,
+                    ip: req.ip,
+                    originalUrl: req.originalUrl,
+                    path: req.path
+                });
+                return res.json({ 
+                    status: 'ok', 
+                    timestamp: Date.now(),
+                    uptime: process.uptime(),
+                    nodeVersion: process.version
+                });
+            }
+            next();
+        });
+        
+        // Also register as route for redundancy
         this.setupHealthCheck();
         
         this.setupAuthMiddleware();
@@ -221,7 +244,8 @@ class AppServer {
     setupHealthCheck() {
         // Health check endpoint - MUST be registered FIRST, before ALL middleware and routes
         // Express processes routes in registration order, so this ensures /health is handled first
-        this.app.get('/health', (req, res) => {
+        // Use app.all() to handle all HTTP methods
+        this.app.all('/health', (req, res) => {
             this.logger.info('Health check endpoint called', { 
                 url: req.url, 
                 method: req.method,
