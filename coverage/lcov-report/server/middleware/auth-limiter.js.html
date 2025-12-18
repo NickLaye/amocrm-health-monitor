@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/7</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -145,10 +145,10 @@
 <a name='L80'></a><a href='#L80'>80</a>
 <a name='L81'></a><a href='#L81'>81</a>
 <a name='L82'></a><a href='#L82'>82</a>
-<a name='L83'></a><a href='#L83'>83</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L83'></a><a href='#L83'>83</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -156,7 +156,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -166,8 +166,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -226,11 +226,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const rateLimit = <span class="cstat-no" title="statement not covered" >require('express-rate-limit');</span>
-const { createLogger } = <span class="cstat-no" title="statement not covered" >require('../utils/logger');</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">const rateLimit = require('express-rate-limit');
+const { createLogger } = require('../utils/logger');
 &nbsp;
-const logger = <span class="cstat-no" title="statement not covered" >createLogger('AuthLimiter');</span>
+const logger = createLogger('AuthLimiter');
 &nbsp;
 /**
  * Rate limiter middleware for authentication attempts.
@@ -238,7 +238,7 @@ const logger = <span class="cstat-no" title="statement not covered" >createLogge
  * 
  * Default config: 10 attempts per 15 minutes window.
  */
-const authLimiter = <span class="cstat-no" title="statement not covered" >rateLimit({</span>
+const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     limit: 10, // Limit each IP to 10 requests per windowMs
     standardHeaders: 'draft-8', // Draft-8: `RateLimit-*` headers
@@ -247,9 +247,9 @@ const authLimiter = <span class="cstat-no" title="statement not covered" >rateLi
         success: false,
         error: 'Too many login attempts, please try again after 15 minutes'
     },
-    handler: <span class="fstat-no" title="function not covered" >(r</span>eq, res, next, options) =&gt; {
-<span class="cstat-no" title="statement not covered" >        logger.warn(`Auth rate limit exceeded for IP: ${req.ip}`);</span>
-<span class="cstat-no" title="statement not covered" >        res.status(options.statusCode).send(options.message);</span>
+    handler: (req, res, next, options) =&gt; {
+        logger.warn(`Auth rate limit exceeded for IP: ${req.ip}`);
+        res.status(options.statusCode).send(options.message);
     },
     skipSuccessfulRequests: true // Only count failed attempts (401) is tricky with Basic Auth handled by express-basic-auth
     // express-basic-auth sends 401 but middleware chain might stop there.
@@ -308,7 +308,7 @@ const authLimiter = <span class="cstat-no" title="statement not covered" >rateLi
     // It effectively counts only failures.
 });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >module.exports = authLimiter;</span>
+module.exports = authLimiter;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -316,7 +316,7 @@ const authLimiter = <span class="cstat-no" title="statement not covered" >rateLi
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-18T17:58:13.443Z
+                at 2025-12-18T18:16:41.293Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

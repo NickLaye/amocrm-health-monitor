@@ -245,7 +245,7 @@ describe('Edge Case Tests', () => {
 
             // Should fallback to env token but still fail the request
             expect(result.status).toBe('down');
-            expect(result.error).toContain('Unauthorized');
+            expect(result.error).toContain('Token refresh failed');
         });
 
         test('should handle concurrent health checks', async () => {

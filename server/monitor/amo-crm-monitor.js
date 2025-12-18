@@ -156,7 +156,13 @@ class AmoCRMMonitor {
      * @param {Object} data 
      */
     notifyListeners(checkType, data) {
-        this.listeners.forEach(cb => cb(checkType, data));
+        this.listeners.forEach(cb => {
+            try {
+                cb(checkType, data);
+            } catch (error) {
+                logger.error('Error in status listener', { error: error.message, checkType });
+            }
+        });
     }
 
     /**
