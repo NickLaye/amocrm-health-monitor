@@ -205,14 +205,25 @@ jobs:
                 
                 # Verify configuration was applied
                 echo "Verifying Nginx configuration..."
+                echo "Full Nginx config file size:"
+                sudo wc -l /etc/nginx/sites-available/amohealth || true
+                
                 if sudo grep -q "location.*/health" /etc/nginx/sites-available/amohealth; then
                   echo "✓ Health check location found in Nginx config"
-                  echo "Health check location details:"
-                  sudo grep -A 8 "location.*/health" /etc/nginx/sites-available/amohealth || true
+                  echo "Health check location details (with context):"
+                  sudo grep -B 2 -A 10 "location.*/health" /etc/nginx/sites-available/amohealth || true
                   
                   # Check if it's exact match or prefix match
                   if sudo grep -q "location = /health" /etc/nginx/sites-available/amohealth; then
                     echo "✓ Using exact match (location = /health) - highest priority"
+                    # Verify it's before location /
+                    health_line=$(sudo grep -n "location = /health" /etc/nginx/sites-available/amohealth | cut -d: -f1)
+                    root_line=$(sudo grep -n "^[[:space:]]*location / {" /etc/nginx/sites-available/amohealth | cut -d: -f1)
+                    if [ -n "$health_line" ] && [ -n "$root_line" ] && [ "$health_line" -lt "$root_line" ]; then
+                      echo "✓ Health location is before location / (line $health_line vs $root_line)"
+                    else
+                      echo "⚠ WARNING: Health location may be after location /"
+                    fi
                   elif sudo grep -q "location ^~ /health" /etc/nginx/sites-available/amohealth; then
                     echo "✓ Using prefix match with priority (location ^~ /health)"
                   else
@@ -221,8 +232,12 @@ jobs:
                 else
                   echo "⚠ Health check location not found in Nginx config!"
                   echo "Available locations in config:"
-                  sudo grep "location" /etc/nginx/sites-available/amohealth || true
+                  sudo grep -n "location" /etc/nginx/sites-available/amohealth || true
                 fi
+                
+                # Check for any other server blocks that might interfere
+                echo "Checking for other server blocks:"
+                sudo grep -n "server_name.*amohealth" /etc/nginx/sites-enabled/* 2>/dev/null || echo "No other server blocks found"
                 
                 # Check if static /health file exists (would interfere)
                 if [ -d "client-build" ] && [ -f "client-build/health" ]; then
