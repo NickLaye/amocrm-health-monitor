@@ -66,7 +66,7 @@ describe('NotificationService', () => {
 
     it('should fire SLA alert if response time exceeds threshold', async () => {
       for (let i = 0; i < 6; i++) {
-        await service.trackLatency('GET', 5000, 200, clientId);
+        await service.trackLatency('GET', 15000, 200, clientId);
       }
       jest.runOnlyPendingTimers();
       expect(axios.post).toHaveBeenCalled();

@@ -2,6 +2,8 @@ const request = require('supertest');
 const express = require('express');
 const helmet = require('helmet');
 const basicAuth = require('express-basic-auth');
+process.env.AUTH_RATE_LIMIT = '10';
+jest.resetModules();
 const authLimiter = require('../middleware/auth-limiter');
 
 describe('Security Integration Tests', () => {

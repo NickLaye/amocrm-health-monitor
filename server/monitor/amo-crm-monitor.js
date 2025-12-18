@@ -154,7 +154,14 @@ class AmoCRMMonitor {
      */
     async request(config, retryCount = 0) {
         try {
-            const response = await this.limiter.execute(() => axios(config));
+            const method = (config.method || 'get').toLowerCase();
+            let response;
+
+            if (['get', 'delete', 'head', 'options'].includes(method)) {
+                response = await this.limiter.execute(() => axios[method](config.url, config));
+            } else {
+                response = await this.limiter.execute(() => axios[method](config.url, config.data, config));
+            }
 
             // Check for HTTP 401 (Unauthorized)
             // ONLY trigger refresh if the request actually had an Authorization header

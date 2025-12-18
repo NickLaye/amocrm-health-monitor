@@ -132,9 +132,9 @@ class TokenManager {
     const tokens = {
       access_token: accessToken,
       refresh_token: refreshToken,
-      expires_at: 0, // Force initial refresh to verify tokens
+      expires_at: Math.floor(Date.now() / 1000) + 3600, // Default to 1 hour
       token_type: 'Bearer',
-      expires_in: 0,
+      expires_in: 3600,
     };
 
     this.saveTokens(tokens);
