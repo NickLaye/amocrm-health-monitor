@@ -1,0 +1,408 @@
+openapi: 3.0.0
+info:
+  title: amoCRM Health Monitor API
+  description: Real-time health monitoring system for amoCRM API
+  version: 1.0.0
+  contact:
+    name: API Support
+servers:
+  - url: http://localhost:3001
+    description: Development server
+  - url: https://your-production-domain.com
+    description: Production server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: History
+    description: Health check history
+  - name: Incidents
+    description: Incident tracking
+  - name: Statistics
+    description: Performance statistics
+  - name: Export
+    description: Data export endpoints
+
+paths:
+  /api/status:
+    get:
+      tags: [Health]
+      summary: Get current service status
+      description: Returns the current status of all monitored services
+      responses:
+        '200':
+          description: Current status of all services
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      GET:
+                        $ref: '#/components/schemas/ServiceStatus'
+                      POST:
+                        $ref: '#/components/schemas/ServiceStatus'
+                      WEB:
+                        $ref: '#/components/schemas/ServiceStatus'
+                      HOOK:
+                        $ref: '#/components/schemas/ServiceStatus'
+                      DP:
+                        $ref: '#/components/schemas/ServiceStatus'
+                  timestamp:
+                    type: integer
+
+  /api/history:
+    get:
+      tags: [History]
+      summary: Get health check history
+      description: Returns historical health check data
+      parameters:
+        - name: hours
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 720
+            default: 24
+        - name: checkType
+          in: query
+          schema:
+            type: string
+            enum: [GET, POST, WEB, HOOK, DP]
+      responses:
+        '200':
+          description: Health check history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/HealthCheck'
+                  count:
+                    type: integer
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /api/incidents:
+    get:
+      tags: [Incidents]
+      summary: Get incidents
+      description: Returns list of downtime incidents
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+      responses:
+        '200':
+          description: List of incidents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Incident'
+                  count:
+                    type: integer
+
+  /api/stats:
+    get:
+      tags: [Statistics]
+      summary: Get statistics
+      description: Returns performance statistics for all services
+      parameters:
+        - name: hours
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 720
+            default: 24
+      responses:
+        '200':
+          description: Performance statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/Statistics'
+                  period:
+                    type: string
+
+  /api/health:
+    get:
+      tags: [Health]
+      summary: Service health check
+      description: Returns the health status of the monitoring service itself
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [healthy, unhealthy]
+                      lastCheck:
+                        type: integer
+                      uptimeSeconds:
+                        type: integer
+        '503':
+          description: Service is unhealthy
+
+  /api/health/db:
+    get:
+      tags: [Health]
+      summary: Database health check
+      description: Check SQLite database connectivity and table status
+      responses:
+        '200':
+          description: Database is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentHealth'
+        '503':
+          description: Database is unhealthy
+
+  /api/health/amo:
+    get:
+      tags: [Health]
+      summary: amoCRM health check
+      description: Check amoCRM API token configuration for all clients
+      responses:
+        '200':
+          description: amoCRM clients are configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentHealth'
+        '503':
+          description: No amoCRM clients configured
+
+  /api/health/notifications:
+    get:
+      tags: [Health]
+      summary: Notifications health check
+      description: Check Mattermost and Email notification configuration
+      responses:
+        '200':
+          description: Notifications are configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentHealth'
+        '503':
+          description: Notifications not configured
+
+  /api/health/all:
+    get:
+      tags: [Health]
+      summary: Aggregate health check
+      description: Combined health status of all components
+      responses:
+        '200':
+          description: All components healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  status:
+                    type: string
+                    enum: [healthy, degraded]
+                  components:
+                    type: object
+                  uptime:
+                    type: integer
+                  nodeVersion:
+                    type: string
+        '503':
+          description: Some components unhealthy
+
+  /api/export/health-checks:
+    get:
+      tags: [Export]
+      summary: Export health checks as CSV
+      parameters:
+        - name: hours
+          in: query
+          schema:
+            type: integer
+            default: 24
+      responses:
+        '200':
+          description: CSV file with health checks
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /api/export/incidents:
+    get:
+      tags: [Export]
+      summary: Export incidents as CSV
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: CSV file with incidents
+          content:
+            text/csv:
+              schema:
+                type: string
+
+components:
+  schemas:
+    ServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [up, down, unknown]
+        responseTime:
+          type: integer
+          description: Response time in milliseconds
+        lastCheck:
+          type: integer
+          description: Unix timestamp of last check
+        errorMessage:
+          type: string
+          nullable: true
+
+    HealthCheck:
+      type: object
+      properties:
+        id:
+          type: integer
+        timestamp:
+          type: integer
+        check_type:
+          type: string
+          enum: [GET, POST, WEB, HOOK, DP]
+        status:
+          type: string
+          enum: [up, down]
+        response_time:
+          type: integer
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    Incident:
+      type: object
+      properties:
+        id:
+          type: integer
+        check_type:
+          type: string
+        start_time:
+          type: integer
+        end_time:
+          type: integer
+          nullable: true
+        duration:
+          type: integer
+          nullable: true
+        details:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Statistics:
+      type: object
+      properties:
+        averageResponseTime:
+          type: number
+          description: Average response time in seconds
+        uptime:
+          type: number
+          description: Uptime percentage
+        errorRate:
+          type: number
+          description: Error rate percentage
+        percentile95:
+          type: number
+          description: 95th percentile response time
+        mttr:
+          type: integer
+          description: Mean Time To Recovery in minutes
+        mtbf:
+          type: number
+          description: Mean Time Between Failures in hours
+        apdex:
+          type: number
+          description: Apdex score (0-1)
+          minimum: 0
+          maximum: 1
+
+    ComponentHealth:
+      type: object
+      properties:
+        success:
+          type: boolean
+        component:
+          type: string
+        status:
+          type: string
+          enum: [healthy, unhealthy, partial]
+        checks:
+          type: object
+        responseTimeMs:
+          type: integer
+        timestamp:
+          type: integer
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: string

@@ -49,12 +49,12 @@ function ResponseTimeChart({ data, colors, labels }) {
           y: check.response_time / 1000 // Convert to seconds
         })),
         borderColor: colors[checkType] || '#000',
-        backgroundColor: `${colors[checkType]}15` || '#00000015',
+        backgroundColor: `${colors[checkType]}22` || '#00000022',
         borderWidth: 2.5,
         pointRadius: 0,
         pointHoverRadius: 6,
         pointHoverBorderWidth: 2,
-        pointHoverBackgroundColor: '#fff',
+        pointHoverBackgroundColor: '#0f172a',
         tension: 0.3,
         fill: true
       });
@@ -91,13 +91,18 @@ function ResponseTimeChart({ data, colors, labels }) {
           boxHeight: 10,
         },
         margin: {
-          top: 10
+          top: 10,
+          bottom: 12
+        },
+        padding: {
+          top: 0,
+          bottom: 12
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(26, 32, 44, 0.95)',
-        titleColor: '#fff',
-        bodyColor: '#fff',
+        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+        titleColor: '#F8FAFC',
+        bodyColor: '#E2E8F0',
         padding: 12,
         cornerRadius: 8,
         titleFont: {
@@ -130,11 +135,12 @@ function ResponseTimeChart({ data, colors, labels }) {
             size: 12,
             weight: '600'
           },
-          color: '#2d3748'
+          color: '#e2e8f0'
         },
         grid: {
-          color: 'rgba(0, 0, 0, 0.05)',
-          lineWidth: 1
+          color: 'rgba(71, 85, 105, 0.3)',
+          lineWidth: 1,
+          borderColor: 'rgba(71, 85, 105, 0.6)'
         },
         ticks: {
           callback: function(value) {
@@ -146,7 +152,7 @@ function ResponseTimeChart({ data, colors, labels }) {
             size: 11,
             weight: '600'
           },
-          color: '#718096'
+          color: '#94a3b8'
         }
       },
       y: {
@@ -158,21 +164,22 @@ function ResponseTimeChart({ data, colors, labels }) {
             size: 12,
             weight: '600'
           },
-          color: '#2d3748'
+          color: '#e2e8f0'
         },
         ticks: {
           font: {
             size: 11,
             weight: '600'
           },
-          color: '#718096',
+          color: '#94a3b8',
           callback: function(value) {
             return value.toFixed(2);
           }
         },
         grid: {
-          color: 'rgba(0, 0, 0, 0.05)',
-          lineWidth: 1
+          color: 'rgba(71, 85, 105, 0.3)',
+          lineWidth: 1,
+          borderColor: 'rgba(71, 85, 105, 0.6)'
         }
       }
     }
@@ -182,24 +189,18 @@ function ResponseTimeChart({ data, colors, labels }) {
 
   if (chartData.datasets.length === 0) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#718096' }}>
+      <div className="py-10 text-center text-sm text-slate-500">
         Нет данных для отображения
       </div>
     );
   }
 
   return (
-    <div style={{ height: '550px', position: 'relative' }}>
+    <div className="relative h-[32rem]">
       <Line ref={chartRef} data={chartData} options={options} />
-      <div style={{ 
-        position: 'absolute', 
-        bottom: '0', 
-        left: '0', 
-        right: '0', 
-        height: '60px', 
-        borderTop: '1px solid rgba(0, 0, 0, 0.06)',
-        pointerEvents: 'none'
-      }}></div>
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-16 border-t border-slate-800/60"
+      />
     </div>
   );
 }

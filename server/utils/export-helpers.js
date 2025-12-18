@@ -76,15 +76,32 @@ function exportIncidentsToCSV(incidents) {
  * @returns {string} CSV formatted string
  */
 function exportStatsToCSV(stats) {
-  const headers = ['check_type', 'uptime', 'avg_response_time', 'total_checks', 'successful_checks', 'failed_checks'];
+  const headers = [
+    'check_type',
+    'uptime',
+    'availability',
+    'avg_response_time',
+    'p95_response_time',
+    'p99_response_time',
+    'total_checks',
+    'up_checks',
+    'warning_checks',
+    'down_checks',
+    'error_rate'
+  ];
   
   const formatted = Object.entries(stats).map(([checkType, data]) => ({
     check_type: checkType,
-    uptime: `${data.uptime.toFixed(2)}%`,
-    avg_response_time: `${data.avgResponseTime.toFixed(0)}ms`,
-    total_checks: data.totalChecks || 0,
-    successful_checks: data.successfulChecks || 0,
-    failed_checks: data.failedChecks || 0
+    uptime: data.uptime !== undefined ? `${data.uptime.toFixed(2)}%` : '0%',
+    availability: data.availability !== undefined ? `${data.availability.toFixed(2)}%` : '0%',
+    avg_response_time: `${Math.round(data.avgResponseTime || 0)}ms`,
+    p95_response_time: `${Math.round(data.p95ResponseTime || 0)}ms`,
+    p99_response_time: `${Math.round(data.p99ResponseTime || 0)}ms`,
+    total_checks: data.totalChecks ?? data.checkCount ?? 0,
+    up_checks: data.upChecks ?? data.successfulChecks ?? 0,
+    warning_checks: data.warningChecks ?? 0,
+    down_checks: data.downChecks ?? data.failedChecks ?? 0,
+    error_rate: data.errorRate !== undefined ? `${data.errorRate.toFixed(2)}%` : '0%'
   }));
 
   return toCSV(formatted, headers);

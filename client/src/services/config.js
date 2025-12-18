@@ -27,9 +27,12 @@ export async function fetchConfig() {
     console.error('Error fetching config:', error);
     // Return default config on error
     return {
-      apiSecret: '',
       checkInterval: 60000,
-      domain: ''
+      domain: '',
+      sse: {
+        tokenEndpoint: '/api/stream/token',
+        tokenTtlMs: 300000
+      }
     };
   }
 }

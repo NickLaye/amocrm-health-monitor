@@ -18,6 +18,8 @@ jobs:
   build:
     name: Build Application
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://amohealth.duckdns.org/api' }}
 
     steps:
       - name: Checkout code
@@ -39,13 +41,15 @@ jobs:
         run: cd client && npm run build
         env:
           CI: false
-          REACT_APP_API_SECRET: ${{ secrets.API_SECRET }}
 
       - name: Run tests
         run: npm test
         env:
           NODE_ENV: test
           API_SECRET: test_secret
+
+      - name: Security audit
+        run: npm audit --omit=dev --audit-level=high || true
 
       - name: Create deployment artifact
         run: |

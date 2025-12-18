@@ -3,33 +3,101 @@
  * Provides security for API endpoints
  */
 
+const crypto = require('crypto');
 const { createLogger } = require('../utils/logger');
+const { getIntEnvOrDefault } = require('../config/env-validator');
+const { DEFAULTS } = require('../config/constants');
+
 const logger = createLogger('Auth');
 
+const SSE_TOKEN_TTL_MS = getIntEnvOrDefault('SSE_TOKEN_TTL_MS', DEFAULTS.SSE_TOKEN_TTL_MS || (5 * 60 * 1000));
+const SSE_TOKEN_CACHE_SIZE = getIntEnvOrDefault('SSE_TOKEN_CACHE_SIZE', 2048);
+const sseTokens = new Map();
+
+function cleanupExpiredTokens() {
+  const now = Date.now();
+  for (const [token, payload] of sseTokens.entries()) {
+    if (!payload || payload.expiresAt <= now) {
+      sseTokens.delete(token);
+    }
+  }
+}
+
+function pruneTokenCache() {
+  if (sseTokens.size <= SSE_TOKEN_CACHE_SIZE) {
+    return;
+  }
+  const excess = sseTokens.size - SSE_TOKEN_CACHE_SIZE;
+  const keys = Array.from(sseTokens.keys()).slice(0, excess);
+  keys.forEach(key => sseTokens.delete(key));
+}
+
+function issueSseToken(clientId) {
+  if (!clientId) {
+    throw new Error('clientId is required to issue SSE token');
+  }
+  cleanupExpiredTokens();
+  pruneTokenCache();
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = Date.now() + SSE_TOKEN_TTL_MS;
+  sseTokens.set(token, { clientId, expiresAt });
+  logger.debug(`Issued SSE token for ${clientId}, ttl=${SSE_TOKEN_TTL_MS}ms`);
+  return { token, expiresAt, ttlMs: SSE_TOKEN_TTL_MS };
+}
+
+function validateSseToken(token, expectedClientId) {
+  cleanupExpiredTokens();
+  if (!token) {
+    return { valid: false, reason: 'missing_token' };
+  }
+  const payload = sseTokens.get(token);
+  if (!payload) {
+    return { valid: false, reason: 'invalid_token' };
+  }
+  if (payload.expiresAt <= Date.now()) {
+    sseTokens.delete(token);
+    return { valid: false, reason: 'expired' };
+  }
+  if (expectedClientId && payload.clientId !== expectedClientId) {
+    return { valid: false, reason: 'client_mismatch' };
+  }
+  return { valid: true, clientId: payload.clientId, expiresAt: payload.expiresAt };
+}
+
 /**
- * Authenticate SSE connections
- * Checks for API key in headers or query params
+ * Authenticate SSE connections using short-lived tokens.
+ * Token must correspond to the requested clientId.
  */
 function authenticateSSE(req, res, next) {
-  const token = req.headers['x-api-key'] || req.query.token;
-  const apiSecret = process.env.API_SECRET;
-  
-  // If no API_SECRET set in env, allow all (backward compatibility)
-  if (!apiSecret) {
-    logger.warn('API_SECRET not set - SSE endpoint is unprotected!');
-    return next();
-  }
-  
-  if (token === apiSecret) {
-    logger.debug('SSE authentication successful');
-    next();
-  } else {
-    logger.warn(`SSE authentication failed from IP: ${req.ip}`);
-    res.status(401).json({ 
+  const token = req.headers['x-sse-token'] || req.query.token;
+  const requestedClientId = req.query.clientId || req.headers['x-client-id'];
+
+  if (!token) {
+    return res.status(401).json({
       success: false,
-      error: 'Unauthorized - Invalid or missing API key' 
+      error: 'Unauthorized - SSE token is required'
     });
   }
+
+  if (!requestedClientId) {
+    return res.status(400).json({
+      success: false,
+      error: 'clientId is required for SSE connections'
+    });
+  }
+
+  const verification = validateSseToken(token, requestedClientId);
+  if (!verification.valid) {
+    const status = verification.reason === 'client_mismatch' ? 403 : 401;
+    logger.warn(`SSE authentication failed (${verification.reason}) from IP ${req.ip}`);
+    return res.status(status).json({
+      success: false,
+      error: 'Unauthorized - Invalid or expired SSE token'
+    });
+  }
+
+  req.sseAuth = { clientId: verification.clientId, expiresAt: verification.expiresAt };
+  return next();
 }
 
 /**
@@ -71,6 +139,8 @@ function asyncHandler(fn) {
 module.exports = {
   authenticateSSE,
   authenticateAPI,
-  asyncHandler
+  asyncHandler,
+  issueSseToken,
+  getSseTokenTtl: () => SSE_TOKEN_TTL_MS
 };
 

@@ -28,21 +28,27 @@ export function handleApiError(error) {
     
     switch (status) {
       case 400:
-        return data?.message || 'Неверный запрос';
+        if (data?.details && Array.isArray(data.details) && data.details.length > 0) {
+          const firstError = data.details[0];
+          return firstError.msg || firstError.message || data.error || 'Ошибка валидации';
+        }
+        return data?.error || data?.message || 'Неверный запрос';
       case 401:
         return 'Ошибка авторизации';
       case 403:
         return 'Доступ запрещен';
       case 404:
         return 'Ресурс не найден';
+      case 409:
+        return data?.error || 'Конфликт: ресурс уже существует';
       case 429:
         return 'Слишком много запросов. Попробуйте позже.';
       case 500:
         return 'Ошибка сервера. Попробуйте позже.';
       case 503:
-        return 'Сервис временно недоступен';
+        return data?.error || 'Сервис временно недоступен';
       default:
-        return data?.message || `Ошибка ${status}`;
+        return data?.error || data?.message || `Ошибка ${status}`;
     }
   }
   

@@ -21,7 +21,7 @@ client.collectDefaultMetrics({ register });
 const healthChecksTotal = new client.Counter({
   name: 'amocrm_health_checks_total',
   help: 'Total number of health checks performed',
-  labelNames: ['check_type', 'status'],
+  labelNames: ['check_type', 'status', 'client_id'],
   registers: [register]
 });
 
@@ -30,8 +30,8 @@ const healthChecksTotal = new client.Counter({
  */
 const serviceStatus = new client.Gauge({
   name: 'amocrm_service_status',
-  help: 'Current status of amoCRM services (1 = up, 0 = down)',
-  labelNames: ['check_type'],
+  help: 'Current status of amoCRM services (1 = up, 0.5 = warning, 0 = down)',
+  labelNames: ['check_type', 'client_id'],
   registers: [register]
 });
 
@@ -41,8 +41,8 @@ const serviceStatus = new client.Gauge({
 const responseTimeHistogram = new client.Histogram({
   name: 'amocrm_response_time_seconds',
   help: 'Response time of amoCRM services in seconds',
-  labelNames: ['check_type'],
-  buckets: [0.1, 0.5, 1, 2, 5, 10], // Buckets in seconds
+  labelNames: ['check_type', 'client_id'],
+  buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10], // Buckets in seconds
   registers: [register]
 });
 
@@ -52,7 +52,7 @@ const responseTimeHistogram = new client.Histogram({
 const uptimeGauge = new client.Gauge({
   name: 'amocrm_uptime_percentage',
   help: 'Uptime percentage for amoCRM services',
-  labelNames: ['check_type'],
+  labelNames: ['check_type', 'client_id'],
   registers: [register]
 });
 
@@ -62,7 +62,7 @@ const uptimeGauge = new client.Gauge({
 const incidentsTotal = new client.Counter({
   name: 'amocrm_incidents_total',
   help: 'Total number of incidents detected',
-  labelNames: ['check_type'],
+  labelNames: ['check_type', 'client_id'],
   registers: [register]
 });
 
@@ -76,21 +76,44 @@ const sseClientsGauge = new client.Gauge({
 });
 
 /**
+ * Gauge for SLA violation state per client/check
+ */
+const slaViolationGauge = new client.Gauge({
+  name: 'amocrm_sla_violation',
+  help: 'Indicates SLA violation (1 = violation active, 0 = normal)',
+  labelNames: ['check_type', 'client_id'],
+  registers: [register]
+});
+
+/**
+ * Summary for percentile tracking per client/check
+ */
+const latencySummary = new client.Summary({
+  name: 'amocrm_latency_summary_ms',
+  help: 'Summary of latency per check/client in milliseconds',
+  labelNames: ['check_type', 'client_id'],
+  percentiles: [0.5, 0.9, 0.95, 0.99],
+  registers: [register]
+});
+
+/**
  * Record a health check
  * @param {string} checkType - Type of check
  * @param {string} status - Status (up/down)
  * @param {number} responseTime - Response time in milliseconds
  */
-function recordHealthCheck(checkType, status, responseTime) {
+function recordHealthCheck(checkType, status, responseTime, clientId = 'default') {
   // Increment counter
-  healthChecksTotal.inc({ check_type: checkType, status });
+  healthChecksTotal.inc({ check_type: checkType, status, client_id: clientId });
   
   // Update service status gauge
-  serviceStatus.set({ check_type: checkType }, status === 'up' ? 1 : 0);
+  const gaugeValue = status === 'up' ? 1 : status === 'warning' ? 0.5 : 0;
+  serviceStatus.set({ check_type: checkType, client_id: clientId }, gaugeValue);
   
   // Record response time (convert ms to seconds)
   if (responseTime) {
-    responseTimeHistogram.observe({ check_type: checkType }, responseTime / 1000);
+    responseTimeHistogram.observe({ check_type: checkType, client_id: clientId }, responseTime / 1000);
+    latencySummary.observe({ check_type: checkType, client_id: clientId }, responseTime);
   }
   
   logger.debug(`Recorded health check: ${checkType} - ${status}`);
@@ -101,18 +124,22 @@ function recordHealthCheck(checkType, status, responseTime) {
  * @param {string} checkType - Type of check
  * @param {number} percentage - Uptime percentage (0-100)
  */
-function updateUptime(checkType, percentage) {
-  uptimeGauge.set({ check_type: checkType }, percentage);
+function updateUptime(checkType, percentage, clientId = 'default') {
+  uptimeGauge.set({ check_type: checkType, client_id: clientId }, percentage);
 }
 
 /**
  * Record an incident
  * @param {string} checkType - Type of check
  */
-function recordIncident(checkType) {
-  incidentsTotal.inc({ check_type: checkType });
-  logger.debug(`Recorded incident: ${checkType}`);
+function recordIncident(checkType, clientId = 'default') {
+  incidentsTotal.inc({ check_type: checkType, client_id: clientId });
+  logger.debug(`Recorded incident: ${checkType} (${clientId})`);
 }
+function updateSlaViolation(checkType, clientId = 'default', isViolation = false) {
+  slaViolationGauge.set({ check_type: checkType, client_id: clientId }, isViolation ? 1 : 0);
+}
+
 
 /**
  * Update SSE clients count
@@ -144,6 +171,7 @@ module.exports = {
   recordHealthCheck,
   updateUptime,
   recordIncident,
+  updateSlaViolation,
   updateSSEClients,
   getMetrics,
   getContentType,

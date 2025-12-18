@@ -1,16 +1,73 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { formatResponseTime, formatUptime } from '../../utils/formatters';
+import { Link } from 'react-router-dom';
+import { formatResponseTime, formatUptime, formatPercentage } from '../../utils/formatters';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import ResponseTimeChart from '../ResponseTimeChart';
+import ServiceCard from '../ServiceCard';
+import IncidentHistory from '../IncidentHistory';
+import api from '../../services/api';
+import { CHECK_TYPE_COLORS, CHECK_TYPE_LABELS } from '../../constants';
 
 /**
  * HealthMonitorDashboardWithData - Pixel-perfect компонент с реальными данными
  * @param {object} status - Текущий статус всех сервисов
  * @param {object} stats - Статистика всех сервисов  
  * @param {Date} lastUpdate - Время последнего обновления
+ * @param {Array} incidents - Массив инцидентов
  */
-const HealthMonitorDashboardWithData = ({ status, stats, lastUpdate }) => {
+const HealthMonitorDashboardWithData = ({
+  status,
+  stats,
+  lastUpdate,
+  incidents = [],
+  clients = [],
+  selectedClientId,
+  onClientChange
+}) => {
+  const [historyData, setHistoryData] = useState({});
+  const [selectedPeriod, setSelectedPeriod] = useState(24); // По умолчанию 24 часа
+  const [isDetailedView, setIsDetailedView] = useState(true);
+
+  // Fetch history data when period changes
+  const fetchHistoryData = useCallback(async () => {
+    if (!selectedClientId) {
+      setHistoryData({});
+      return;
+    }
+
+    try {
+      const data = await api.getHistory(null, selectedPeriod, selectedClientId);
+      
+      // Group data by check type
+      const grouped = {};
+      data.forEach(check => {
+        const checkType = check.check_type;
+        if (!grouped[checkType]) {
+          grouped[checkType] = [];
+        }
+        // Ensure we have required fields
+        if (check.timestamp && check.response_time !== undefined) {
+          grouped[checkType].push({
+            timestamp: check.timestamp,
+            response_time: check.response_time || 0,
+            check_type: checkType
+          });
+        }
+      });
+      
+      setHistoryData(grouped);
+    } catch (error) {
+      console.error('Error fetching history:', error);
+      setHistoryData({});
+    }
+  }, [selectedPeriod, selectedClientId]);
+
+  useEffect(() => {
+    fetchHistoryData();
+  }, [fetchHistoryData, selectedClientId]);
+
   // Вычисляем общий статус
   const overallStatus = useMemo(() => {
     if (!status) {
@@ -18,7 +75,14 @@ const HealthMonitorDashboardWithData = ({ status, stats, lastUpdate }) => {
     }
     const statuses = Object.values(status);
     const hasDown = statuses.some(s => s.status === 'down');
-    return hasDown ? 'down' : 'up';
+    if (hasDown) {
+      return 'down';
+    }
+    const hasWarning = statuses.some(s => s.status === 'warning');
+    if (hasWarning) {
+      return 'warning';
+    }
+    return 'up';
   }, [status]);
 
   // Форматируем время последнего обновления
@@ -44,254 +108,360 @@ const HealthMonitorDashboardWithData = ({ status, stats, lastUpdate }) => {
   const getResponseTime = getAvgResponseTime('GET');
   const postResponseTime = getAvgResponseTime('POST');
 
-  // Данные сервисов
-  const services = useMemo(() => {
-    const serviceConfigs = [
-      { key: 'GET', name: 'API (GET)' },
-      { key: 'POST', name: 'API (POST)' },
-      { key: 'WEB', name: 'Веб-интерфейс' },
-      { key: 'HOOK', name: 'Вебхуки' },
-      { key: 'DP', name: 'Digital Pipeline' }
-    ];
+  // Данные сервисов для ServiceCard
+  const serviceConfigs = useMemo(() => [
+    { key: 'GET', name: 'API (GET)' },
+    { key: 'POST', name: 'API (POST)' },
+    { key: 'WEB', name: 'Веб-интерфейс' },
+    { key: 'HOOK', name: 'Вебхуки' },
+    { key: 'DP', name: 'Digital Pipeline' }
+  ], []);
 
-    return serviceConfigs.map(config => {
-      const serviceStatus = status?.[config.key] || { status: 'unknown', responseTime: null };
-      const serviceStats = stats?.[config.key] || { uptime: 0, totalChecks: 0 };
-      
-      const responseTime = serviceStatus.responseTime 
-        ? formatResponseTime(serviceStatus.responseTime) 
-        : '0.000';
-      
-      const isHighResponseTime = serviceStatus.responseTime && serviceStatus.responseTime > 700;
+  const detailMode = isDetailedView ? 'detailed' : 'compact';
+  const selectedClient = useMemo(
+    () => clients.find(client => client.id === selectedClientId),
+    [clients, selectedClientId]
+  );
 
-      return {
-        name: config.name,
-        status: serviceStatus.status,
-        responseTime,
-        uptime: formatUptime(serviceStats.uptime),
-        checks: serviceStats.totalChecks || 0,
-        highlight: isHighResponseTime
-      };
-    });
-  }, [status, stats]);
+  const handleClientSelection = (clientId) => {
+    if (clientId && clientId !== selectedClientId) {
+      onClientChange?.(clientId);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#7B5FE8] to-[#9B6BE8] px-4 py-6 md:px-6 md:py-8">
-      {/* Main Container */}
-      <div className="max-w-[1240px] mx-auto">
-        {/* Page Title */}
-        <h1 className="text-white text-2xl font-semibold text-center mb-8">
-          amoCRM Health Monitor
-        </h1>
+    <div className="min-h-screen bg-slate-900 px-4 py-8 text-slate-200">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
+        {clients.length > 0 && (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-inner shadow-black/15">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Клиенты</p>
+                <h2 className="mt-1 text-xl font-semibold text-white">Выберите стенд для мониторинга</h2>
+                <p className="text-sm text-slate-400">Данные фильтруются по выбранному клиенту</p>
+              </div>
+              <div className="lg:w-64">
+                <label className="sr-only" htmlFor="client-selector">Выбор клиента</label>
+                <select
+                  id="client-selector"
+                  value={selectedClientId || ''}
+                  onChange={(event) => handleClientSelection(event.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-100 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  {clients.map(client => (
+                    <option key={`select-${client.id}`} value={client.id}>
+                      {client.label || client.id}
+                      {client.environment ? ` · ${client.environment}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {clients.map(client => {
+                const active = client.id === selectedClientId;
+                return (
+                  <button
+                    key={`card-${client.id}`}
+                    type="button"
+                    onClick={() => handleClientSelection(client.id)}
+                    className={`w-full rounded-2xl border px-4 py-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                      active
+                        ? 'border-emerald-500/80 bg-emerald-900/20 shadow-inner shadow-emerald-500/20'
+                        : 'border-slate-700 bg-slate-900/40 hover:border-emerald-400/50 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-base font-semibold text-white">{client.label || client.id}</p>
+                      {client.environment && (
+                        <span className="rounded-full border border-slate-600 bg-slate-800/70 px-2 py-0.5 text-xs uppercase tracking-wide text-slate-300">
+                          {client.environment}
+                        </span>
+                      )}
+                    </div>
+                    {client.domain && (
+                      <p className="mt-1 text-xs font-mono text-slate-400">{client.domain}</p>
+                    )}
+                    {client.tags?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {client.tags.map(tag => (
+                          <span
+                            key={`${client.id}-${tag}`}
+                            className="rounded-full border border-slate-600/80 bg-slate-800/70 px-2 py-0.5 text-xs text-slate-300"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-        {/* Top Status Row - 3 cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {/* Card 1: Overall Status */}
-          <div className="bg-white rounded-2xl shadow-card p-6 flex items-center gap-4 transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-              overallStatus === 'up' ? 'bg-success-bg' : 'bg-red-100'
+        <header className="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/40 p-6 shadow-inner shadow-black/20 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-2">
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">amoCRM Health Monitor</p>
+            <h1 className="mt-2 text-3xl font-semibold text-white">AmoPulse Monitor</h1>
+            <p className="text-sm text-slate-400">
+              Единое окно для SRE и поддержки
+              {selectedClient?.label ? ` · ${selectedClient.label}` : ''}
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end md:gap-4">
+            <div className="flex items-center gap-3 rounded-full border border-slate-700 bg-slate-800 px-4 py-2">
+              <span className="text-sm text-slate-400">Detailed View</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isDetailedView}
+                onClick={() => setIsDetailedView(prev => !prev)}
+                className={`relative h-8 w-14 rounded-full transition-colors duration-200 ${isDetailedView ? 'bg-emerald-500/80' : 'bg-slate-600'}`}
+              >
+                <span
+                  className={`absolute inset-y-1 left-1 h-6 w-6 rounded-full bg-white transition-transform duration-200 ${isDetailedView ? 'translate-x-6' : 'translate-x-0'}`}
+                />
+              </button>
+            </div>
+            <Link
+              to="/accounts/new"
+              className="inline-flex items-center justify-center rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200 transition hover:border-emerald-400 hover:bg-emerald-500/20"
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 010 2h-5v5a1 1 0 01-2 0v-5H4a1 1 0 011-1z" clipRule="evenodd" />
+              </svg>
+              Добавить аккаунт
+            </Link>
+          </div>
+        </header>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <div className="flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-800 p-5">
+            <div className={`flex h-14 w-14 items-center justify-center rounded-full ${
+              overallStatus === 'up'
+                ? 'bg-emerald-900/40 text-emerald-300'
+                : overallStatus === 'warning'
+                  ? 'bg-amber-900/40 text-amber-200'
+                  : 'bg-red-900/40 text-red-300'
             }`}>
               {overallStatus === 'up' ? (
-                <svg className="w-6 h-6 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : overallStatus === 'warning' ? (
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v4m0 4h.01M10.29 3.86l-7 12A1 1 0 004 17h16a1 1 0 00.87-1.5l-7-12a1 1 0 00-1.74 0z" />
                 </svg>
               ) : (
-                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               )}
             </div>
-            <div className="flex-1">
-              <div className="text-[#111827] font-bold text-base leading-tight">Общий статус</div>
-              <div className="text-[#6B7280] text-sm leading-tight mt-1">
-                {overallStatus === 'up' ? 'Все сервисы работают' : 'Обнаружены проблемы'}
-              </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-400">Общий статус</p>
+              <p className="text-xl font-semibold text-white">
+                {overallStatus === 'up'
+                  ? 'Все сервисы стабильны'
+                  : overallStatus === 'warning'
+                    ? 'Обнаружены предупреждения'
+                    : 'Обнаружены инциденты'}
+              </p>
             </div>
           </div>
 
-          {/* Card 2: Last Updated */}
-          <div className="bg-white rounded-2xl shadow-card p-6 flex flex-col justify-center items-center transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-            <div className="text-[#6B7280] text-[13px] mb-1.5">Последнее обновление</div>
-            <div className="text-[#111827] text-2xl font-semibold">{formattedLastUpdate}</div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-800 p-5 text-center">
+            <p className="text-sm font-semibold text-slate-400">Последнее обновление</p>
+            <p className="mt-2 text-3xl font-semibold text-white">{formattedLastUpdate}</p>
           </div>
 
-          {/* Card 3: Period Selector */}
-          <div className="bg-white rounded-2xl shadow-card p-6 flex items-center justify-between gap-4 transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-            <div className="text-[#111827] font-semibold text-base">Период:</div>
-            <div className="relative flex-1 max-w-[160px]">
-              <select className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-4 py-2 pr-10 text-[#111827] text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-accent focus:border-transparent cursor-pointer transition-colors hover:border-gray-300">
-                <option>24 часа</option>
-                <option>7 дней</option>
-                <option>30 дней</option>
+          <div className="rounded-2xl border border-slate-700 bg-slate-800 p-5">
+            <p className="text-sm font-semibold text-slate-400">Период</p>
+            <div className="mt-3">
+              <select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(Number(e.target.value))}
+                className="w-full rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-100 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value={1}>1 час</option>
+                <option value={3}>3 часа</option>
+                <option value={6}>6 часов</option>
+                <option value={24}>24 часа</option>
+                <option value={168}>7 дней</option>
+                <option value={720}>30 дней</option>
               </select>
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                <svg className="w-5 h-5 text-[#6B7280]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section: Average Response Time API */}
-        <section className="mb-8">
-          <h2 className="text-white text-xl font-semibold mb-4">Среднее время ответа API</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* GET Card */}
-            <div className="bg-gradient-to-br from-[#E9D5FF] to-[#DDD6FE] rounded-xl shadow-card p-6 h-32 flex flex-col justify-between transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-              <div className="inline-flex items-center justify-center bg-white/60 rounded-full px-3 py-1 text-xs font-semibold text-[#7C3AED] uppercase self-start">
-                GET
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[32px] font-bold text-[#111827] leading-none">
-                  {formatResponseTime(getResponseTime * 1000) || '0.000'}
-                </span>
-                <span className="text-base text-[#6B7280] leading-none">сек</span>
-              </div>
-            </div>
-
-            {/* POST Card */}
-            <div className="bg-gradient-to-br from-[#E9D5FF] to-[#DDD6FE] rounded-xl shadow-card p-6 h-32 flex flex-col justify-between transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-              <div className="inline-flex items-center justify-center bg-white/60 rounded-full px-3 py-1 text-xs font-semibold text-[#7C3AED] uppercase self-start">
-                POST
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-[32px] font-bold text-[#111827] leading-none">
-                  {formatResponseTime(postResponseTime * 1000) || '0.000'}
-                </span>
-                <span className="text-base text-[#6B7280] leading-none">сек</span>
-              </div>
             </div>
           </div>
         </section>
 
-        {/* Section: Per-Service Metrics */}
-        <section className="mb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {services.map((service, index) => (
-              <div 
-                key={index}
-                className={`bg-white rounded-xl shadow-card p-5 flex flex-col gap-3 transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5 ${
-                  service.highlight ? 'relative overflow-hidden' : ''
-                }`}
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-2xl font-semibold text-white">Среднее время ответа API</h2>
+            <p className="text-sm text-slate-400">Период анализа: {selectedPeriod}ч</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              { key: 'GET', label: 'API (GET)', value: getResponseTime },
+              { key: 'POST', label: 'API (POST)', value: postResponseTime }
+            ].map(({ key, label, value }) => (
+              <div
+                key={key}
+                className="rounded-2xl border border-slate-700 bg-slate-800/80 p-6 shadow-lg shadow-black/10 transition hover:border-emerald-400/60"
               >
-                {service.highlight && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-amber-50/40 to-transparent pointer-events-none"></div>
-                )}
-                <div className="relative flex items-start justify-between gap-2">
-                  <h3 className="text-[#111827] font-semibold text-[15px] leading-tight flex-1">
-                    {service.name}
-                  </h3>
-                  <span className={`inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide flex-shrink-0 ${
-                    service.status === 'up' 
-                      ? 'bg-success-bg text-success' 
-                      : service.status === 'down'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {service.status === 'up' ? 'UP' : service.status === 'down' ? 'DOWN' : 'N/A'}
-                  </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs uppercase tracking-[0.2em] text-slate-400">{key}</span>
+                  <span className="text-sm text-slate-500">{label}</span>
                 </div>
-                
-                <div className="relative space-y-2">
-                  {/* Response Time */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-[13px] text-[#6B7280]">Время ответа:</span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-[22px] font-semibold text-[#111827] leading-none">
-                        {service.responseTime}
-                      </span>
-                      <span className="text-[13px] text-[#6B7280] leading-none">сек</span>
-                    </div>
-                  </div>
-                  
-                  {/* Uptime */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-[13px] text-[#6B7280]">Uptime:</span>
-                    <span className="text-[15px] font-semibold text-[#111827]">{service.uptime}</span>
-                  </div>
-                  
-                  {/* Checks */}
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-[13px] text-[#6B7280]">Проверок:</span>
-                    <span className="text-[15px] font-semibold text-[#111827]">{service.checks}</span>
-                  </div>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-4xl font-semibold text-white">{formatResponseTime(value) || '0.000'}</span>
+                  <span className="pb-1 text-sm text-slate-400">сек</span>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* Section: Response Time Chart */}
-        <section className="mb-8">
-          <div className="bg-white rounded-2xl shadow-card p-6 transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-            <h3 className="text-[#111827] text-xl font-semibold mb-6">График времени ответа</h3>
-            
-            {/* Chart Placeholder */}
-            <div className="relative h-80 bg-[#F3F4F6] rounded-lg mb-6 flex items-center justify-center">
-              {/* Placeholder for chart */}
-              <div className="absolute inset-0 flex items-end justify-around px-8 pb-12">
-                {/* Sample chart bars visualization */}
-                {[65, 45, 70, 55, 80, 50, 75, 60, 85, 55, 70, 65].map((height, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <div 
-                      className="w-full bg-gradient-to-t from-purple-accent to-purple-light rounded-t-sm transition-all"
-                      style={{ height: `${height}%` }}
-                    ></div>
+        <section className="space-y-5">
+          <div className="hidden gap-4 md:grid md:grid-cols-2 lg:grid-cols-3">
+            {serviceConfigs.map((config) => {
+              const serviceStatus = status?.[config.key] || { status: 'unknown', responseTime: null };
+              const serviceStats = stats?.[config.key] || {};
+
+              return (
+                <ServiceCard
+                  key={config.key}
+                  checkType={config.key}
+                  label={config.name}
+                  data={{
+                    status: serviceStatus.status,
+                    responseTime: serviceStatus.responseTime,
+                    errorMessage: serviceStatus.errorMessage,
+                    httpStatus: serviceStatus.httpStatus,
+                    reason: serviceStatus.reason,
+                    since: serviceStatus.since
+                  }}
+                  stats={serviceStats}
+                  view={detailMode}
+                />
+              );
+            })}
+          </div>
+
+          <div className="space-y-3 md:hidden">
+            <h3 className="text-lg font-semibold text-white">Статусы сервисов</h3>
+            {serviceConfigs.map((config) => {
+              const serviceStatus = status?.[config.key] || { status: 'unknown' };
+              const isUp = serviceStatus.status === 'up';
+              const isWarning = serviceStatus.status === 'warning';
+              const isDown = serviceStatus.status === 'down';
+              const serviceStats = stats?.[config.key] || {};
+              const mobileResponseTime = serviceStatus.responseTime ? formatResponseTime(serviceStatus.responseTime) : null;
+              const badgeLabel = isUp ? 'ОК' : isDown ? 'СБОЙ' : isWarning ? 'ВНИМ' : 'Н/Д';
+              const badgeTone = isUp
+                ? 'text-emerald-200'
+                : isDown
+                  ? 'text-red-200'
+                  : isWarning
+                    ? 'text-amber-200'
+                    : 'text-slate-200';
+              const uptimeValue = serviceStats.uptime !== undefined && serviceStats.uptime !== null
+                ? formatUptime(serviceStats.uptime)
+                : '—';
+              const successRateValue = serviceStats.successRate !== undefined && serviceStats.successRate !== null
+                ? formatPercentage(serviceStats.successRate)
+                : '—';
+              const latencyValue = serviceStats.avgResponseTime !== undefined && serviceStats.avgResponseTime !== null
+                ? `${formatResponseTime(serviceStats.avgResponseTime)} сек`
+                : '—';
+
+              return (
+                <div
+                  key={`mobile-${config.key}`}
+                  className={`flex flex-col gap-3 rounded-2xl border px-4 py-4 ${
+                    isUp
+                      ? 'border-emerald-600 bg-emerald-900/30 text-emerald-100'
+                      : isDown
+                        ? 'border-red-700 bg-red-900/30 text-red-100'
+                        : isWarning
+                          ? 'border-amber-600 bg-amber-900/30 text-amber-100'
+                          : 'border-slate-600 bg-slate-800 text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm uppercase tracking-wide text-slate-200">{config.name}</p>
+                      <p className="text-xs text-slate-400">{mobileResponseTime ? `Ping ${mobileResponseTime} сек` : 'Нет данных'}</p>
+                    </div>
+                    <span className={`text-lg font-semibold ${badgeTone}`}>
+                      {badgeLabel}
+                    </span>
                   </div>
-                ))}
-              </div>
-              
-              {/* Y-axis label */}
-              <div className="absolute left-2 top-2 text-xs text-[#6B7280] font-medium">
-                Время ответа (сек)
-              </div>
-            </div>
-
-            {/* Chart Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-4 border-t border-gray-100">
-              {[
-                { name: 'Digital Pipeline', color: '#F59E0B' },
-                { name: 'API (POST)', color: '#8B5CF6' },
-                { name: 'API (GET)', color: '#7C3AED' },
-                { name: 'Вебхуки', color: '#6366F1' },
-                { name: 'Веб-интерфейс', color: '#3B82F6' }
-              ].map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  ></div>
-                  <span className="text-sm text-[#6B7280]">{item.name}</span>
+                  {!isDetailedView ? (
+                    <div className="text-xs text-slate-300">
+                      {serviceStatus.status === 'unknown'
+                        ? 'Нет актуальной телеметрии'
+                        : mobileResponseTime
+                          ? `Latency ${mobileResponseTime} сек`
+                          : 'Нет данных о задержке'}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-slate-600/60 bg-slate-900/40 p-3 text-xs text-slate-300">
+                      <div className="flex items-center justify-between border-b border-slate-700/60 pb-2">
+                        <span>Uptime</span>
+                        <span className="font-mono text-slate-100">{uptimeValue}</span>
+                      </div>
+                      <div className="flex items-center justify-between border-b border-slate-700/60 py-2">
+                        <span>Success Rate</span>
+                        <span className="font-mono text-slate-100">{successRateValue}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <span>Latency</span>
+                        <span className="font-mono text-slate-100">{latencyValue}</span>
+                      </div>
+                    </div>
+                  )}
+                  {serviceStatus.errorMessage && (
+                    <div className={`text-xs ${
+                      isDown
+                        ? 'text-red-200'
+                        : isWarning
+                          ? 'text-amber-200'
+                          : 'text-slate-300'
+                    }`}>
+                      {serviceStatus.errorMessage}
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </section>
 
-        {/* Section: Incident History */}
-        <section className="mb-8">
-          <div className="bg-white rounded-2xl shadow-card p-8 flex flex-col items-center justify-center text-center transition-all duration-200 hover:shadow-card-hover hover:-translate-y-0.5">
-            <h3 className="text-[#111827] text-xl font-semibold mb-6 self-start">История инцидентов</h3>
-            
-            <div className="flex flex-col items-center gap-4 py-6">
-              <div className="w-16 h-16 rounded-full bg-success-bg flex items-center justify-center">
-                <svg className="w-8 h-8 text-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
+        {Object.keys(historyData).length > 0 && (
+          <section className="hidden md:block">
+            <div className="rounded-2xl border border-slate-700 bg-slate-800 p-6 shadow-lg shadow-black/20">
+              <h3 className="text-xl font-semibold text-white">График времени ответа</h3>
+              <p className="text-sm text-slate-400">Актуальные данные из Chart.js</p>
+              <div className="mt-6">
+                <ResponseTimeChart
+                  data={historyData}
+                  colors={CHECK_TYPE_COLORS}
+                  labels={CHECK_TYPE_LABELS}
+                />
               </div>
-              
-              <p className="text-[#111827] text-base max-w-md">
-                Отличная новость! За последнее время инцидентов не обнаружено.
-              </p>
             </div>
-          </div>
+          </section>
+        )}
+
+        <section>
+          <IncidentHistory incidents={incidents} />
         </section>
 
-        {/* Footer Status Line */}
-        <div className="text-center text-white/80 text-sm py-4">
+        <footer className="pb-4 text-center text-sm text-slate-500">
           Мониторинг работает в режиме реального времени
-        </div>
+        </footer>
       </div>
     </div>
   );
@@ -300,13 +470,26 @@ const HealthMonitorDashboardWithData = ({ status, stats, lastUpdate }) => {
 HealthMonitorDashboardWithData.propTypes = {
   status: PropTypes.object,
   stats: PropTypes.object,
-  lastUpdate: PropTypes.instanceOf(Date)
+  lastUpdate: PropTypes.instanceOf(Date),
+  incidents: PropTypes.array,
+  clients: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.string.isRequired,
+    label: PropTypes.string,
+    environment: PropTypes.string,
+    tags: PropTypes.arrayOf(PropTypes.string)
+  })),
+  selectedClientId: PropTypes.string,
+  onClientChange: PropTypes.func
 };
 
 HealthMonitorDashboardWithData.defaultProps = {
   status: null,
   stats: null,
-  lastUpdate: null
+  lastUpdate: null,
+  incidents: [],
+  clients: [],
+  selectedClientId: null,
+  onClientChange: null
 };
 
 export default HealthMonitorDashboardWithData;

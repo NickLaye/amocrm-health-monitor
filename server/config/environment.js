@@ -19,7 +19,7 @@ const development = {
   cleanupSchedule: '*/30 * * * *', // Every 30 minutes for testing
   rateLimit: {
     windowMs: 1 * 60 * 1000,   // 1 minute
-    max: 1000                   // More lenient in dev
+    limit: 1000                 // More lenient in dev
   },
   compression: {
     enabled: false,              // Easier debugging without compression
@@ -42,7 +42,7 @@ const production = {
   cleanupSchedule: '0 3 * * *', // Daily at 3:00 AM
   rateLimit: {
     windowMs: 1 * 60 * 1000,    // 1 minute
-    max: 100                     // Strict in production
+    limit: 100                   // Strict in production
   },
   compression: {
     enabled: true,
@@ -67,7 +67,7 @@ const test = {
   cleanupSchedule: '0 0 * * *', // Once a day
   rateLimit: {
     windowMs: 1 * 60 * 1000,
-    max: 10000                  // Very lenient in tests
+    limit: 10000                // Very lenient in tests
   },
   compression: {
     enabled: false,

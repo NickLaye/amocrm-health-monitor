@@ -33,9 +33,34 @@ const CHECK_TYPE_LABELS = {
  */
 const STATUS = {
   UP: 'up',
+  WARNING: 'warning',
   DOWN: 'down',
   UNKNOWN: 'unknown'
 };
+
+/**
+ * Latency thresholds per check type (milliseconds).
+ * warningMs — деградация, downMs — критическое превышение.
+ */
+const LATENCY_THRESHOLDS = {
+  GET: { warningMs: 500, downMs: 1500 },
+  POST: { warningMs: 500, downMs: 1500 },
+  WEB: { warningMs: 500, downMs: 1500 },
+  HOOK: { warningMs: 500, downMs: 1500 },
+  DP: { warningMs: 2000, downMs: 5000 }
+};
+
+/**
+ * Supported aggregate resolutions
+ */
+const RESOLUTIONS = {
+  RAW: 'raw',
+  HOUR: 'hour',
+  DAY: 'day'
+};
+
+const DEFAULT_CLIENT_ID = process.env.AMOCRM_CLIENT_ID || 'default';
+const CLIENT_ID_PATTERN = /^[A-Za-z0-9#._-]{1,64}$/;
 
 /**
  * Default configuration values
@@ -45,7 +70,20 @@ const DEFAULTS = {
   TIMEOUT_THRESHOLD: 10000,     // 10 seconds
   PORT: 3001,
   TOKEN_REFRESH_INTERVAL: 3600000, // 1 hour
-  NOTIFICATION_DEBOUNCE: 300000    // 5 minutes
+  NOTIFICATION_DEBOUNCE: 300000,   // 5 minutes
+  WARNING_ESCALATION_THRESHOLD: 3,
+  WARNING_ESCALATION_WINDOW_MS: 5 * 60 * 1000,
+  RECOVERY_SUCCESS_THRESHOLD: 2,
+  SSE_TOKEN_TTL_MS: 5 * 60 * 1000, // 5 minutes
+  DP_CHECK_INTERVAL_MS: 120000,    // 2 minutes
+  DP_REQUEST_TIMEOUT_MS: 15000,    // 15 seconds
+  DP_WEBHOOK_TIMEOUT_MS: 60000,    // 60 seconds
+  DP_WORKER_TIMEOUT_MS: 90000,     // 90 seconds overall guard
+  RATE_LIMIT: {
+    WINDOW_MS: 60 * 1000,
+    LIMIT: 100,
+    IPV6_SUBNET: 56
+  }
 };
 
 /**
@@ -58,11 +96,32 @@ const HTTP_STATUS = {
   SERVER_ERROR_MIN: 500
 };
 
+/**
+ * Test entity configuration for POST API health checks
+ * These IDs MUST be configured via environment variables
+ * The test deal and field are used to verify write access to amoCRM API
+ * 
+ * IMPORTANT: Do not use production data as test entities
+ * Create a dedicated test deal with a text field for health checks
+ */
+const TEST_ENTITY = {
+  // Must be set via AMOCRM_TEST_DEAL_ID environment variable
+  DEAL_ID: process.env.AMOCRM_TEST_DEAL_ID ? parseInt(process.env.AMOCRM_TEST_DEAL_ID, 10) : null,
+  // Must be set via AMOCRM_TEST_FIELD_ID environment variable
+  FIELD_ID: process.env.AMOCRM_TEST_FIELD_ID ? parseInt(process.env.AMOCRM_TEST_FIELD_ID, 10) : null
+};
+
 module.exports = {
   CHECK_TYPES,
   CHECK_TYPE_LABELS,
   STATUS,
+  RESOLUTIONS,
   DEFAULTS,
-  HTTP_STATUS
+  HTTP_STATUS,
+  TEST_ENTITY,
+  LATENCY_THRESHOLDS,
+  DEFAULT_CLIENT_ID,
+  CLIENT_ID_PATTERN
 };
+
 

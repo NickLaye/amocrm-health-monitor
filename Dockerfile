@@ -3,13 +3,16 @@
 # Stage 1: Build frontend
 FROM node:18-alpine AS frontend-builder
 
+ARG VITE_API_URL=/api
+ENV VITE_API_URL=${VITE_API_URL}
+
 WORKDIR /app/client
 
 # Copy client package files
 COPY client/package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (need dev deps for build)
+RUN npm ci
 
 # Copy client source
 COPY client/ ./
@@ -53,7 +56,7 @@ RUN npm ci --only=production && npm cache clean --force
 COPY --from=backend-builder /app/server ./server
 
 # Copy frontend build from builder
-COPY --from=frontend-builder /app/client/build ./client/build
+COPY --from=frontend-builder /app/client/dist ./client/dist
 
 # Create data directory for SQLite
 RUN mkdir -p /app/data

@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -10,6 +10,8 @@ jobs:
   # Build and verify
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_API_URL: http://localhost:3001/api
     
     strategy:
       matrix:
@@ -28,55 +30,26 @@ jobs:
       run: npm ci
     
     - name: Run backend tests
-      run: npm test -- --coverage --maxWorkers=2 || true
-      continue-on-error: true
-    
+      run: npm test -- --coverage --maxWorkers=2
+
     - name: Upload coverage
       if: matrix.node-version == '20.x'
       uses: codecov/codecov-action@v3
       with:
         files: ./coverage/lcov.info
-        fail_ci_if_error: false
-    
+        fail_ci_if_error: true
+
     - name: Install frontend dependencies
       run: cd client && npm install
-    
+
     - name: Build frontend
       run: cd client && npm run build
       env:
         CI: false
-    
+
     - name: Verify build artifacts
       run: |
-        test -d client/build || (echo "Build folder not found" && exit 1)
-        test -f client/build/index.html || (echo "index.html not found" && exit 1)
+        test -d client/dist || (echo "Build folder not found" && exit 1)
+        test -f client/dist/index.html || (echo "index.html not found" && exit 1)
         echo "✅ Build successful!"
-  
-  # Deploy to production server
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-    - name: Deploy to server via SSH
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd /root/Health_Check_amoCRM
-          git reset --hard
-          git clean -fd -e data/
-          git pull origin main
-          npm ci
-          cd client
-          npm install
-          npm run build
-          cd ..
-          pm2 restart amocrm-health-monitor
-          pm2 save
-          nginx -s reload
-          echo "✅ Deployment completed!"
 
