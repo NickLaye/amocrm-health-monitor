@@ -141,7 +141,19 @@ jobs:
             cd current
             
             # Install production dependencies
-            npm install --production
+            echo "Installing production dependencies..."
+            npm install --production --no-audit --no-fund
+            if [ $? -ne 0 ]; then
+              echo "✗ Failed to install dependencies"
+              exit 1
+            fi
+            echo "✓ Dependencies installed successfully"
+            
+            # Verify critical modules exist
+            if [ ! -d "node_modules" ]; then
+              echo "✗ node_modules directory not found"
+              exit 1
+            fi
             
             # Copy .env file (should exist on server)
             if [ -f "../.env" ]; then
@@ -208,15 +220,22 @@ jobs:
             
             # Check local health endpoint to ensure app is ready
             echo "Checking local health endpoint..."
-            for i in {1..6}; do
+            local_check_passed=false
+            for i in 1 2 3 4 5 6; do
               if curl -f -s http://127.0.0.1:3001/health > /dev/null 2>&1; then
                 echo "✓ Local health check passed (attempt $i/6)"
+                local_check_passed=true
                 break
               else
                 echo "⚠ Local health check failed (attempt $i/6), waiting 5 seconds..."
-                if [ $i -eq 6 ]; then
+                if [ "$i" = "6" ]; then
                   echo "✗ Local health check failed after 6 attempts"
+                  echo "PM2 process status:"
+                  pm2 list || true
+                  echo "PM2 logs (last 50 lines):"
                   pm2 logs amocrm-health-monitor --lines 50 --nostream || true
+                  echo "PM2 error logs:"
+                  pm2 logs amocrm-health-monitor --err --lines 50 --nostream || true
                 else
                   sleep 5
                 fi
