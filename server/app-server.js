@@ -272,9 +272,12 @@ class AppServer {
             const buildPath = candidatePaths.find((candidate) => fs.existsSync(candidate));
 
             if (buildPath) {
-                this.app.get(/.*/, (req, res, next) => {
-                    // Explicitly skip /health endpoint - it should be handled by setupHealthCheck
-                    if (req.path === '/health' || req.originalUrl === '/health') {
+                // Use more specific regex that excludes /health
+                this.app.get(/^\/(?!health(\/|$)).*/, (req, res, next) => {
+                    // Double-check: explicitly skip /health endpoint
+                    const pathWithoutQuery = (req.path || req.url.split('?')[0]);
+                    if (pathWithoutQuery === '/health') {
+                        this.logger.warn('SPA catch-all intercepted /health - this should not happen!');
                         return next();
                     }
                     res.sendFile(path.join(buildPath, 'index.html'));
