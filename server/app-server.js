@@ -209,8 +209,19 @@ class AppServer {
     setupHealthCheck() {
         // Health check endpoint - must be after static files but before catch-all SPA route
         this.app.get('/health', (req, res) => {
-            res.json({ status: 'ok', timestamp: Date.now() });
+            this.logger.debug('Health check endpoint called', { 
+                url: req.url, 
+                method: req.method,
+                ip: req.ip 
+            });
+            res.json({ 
+                status: 'ok', 
+                timestamp: Date.now(),
+                uptime: process.uptime(),
+                nodeVersion: process.version
+            });
         });
+        this.logger.info('Health check endpoint registered at /health');
     }
 
     setupSPACatchAll() {
