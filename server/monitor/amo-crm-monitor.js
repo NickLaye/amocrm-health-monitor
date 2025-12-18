@@ -336,6 +336,20 @@ class AmoCRMMonitor {
             logger.debug('DP cycle finished', { status: result.status });
         } catch (error) {
             logger.error('DP cycle failed', { error: error.message });
+
+            await this.database.insertHealthCheck(
+                CHECK_TYPES.DP,
+                STATUS.DOWN,
+                this.dpWorkerTimeout,
+                {
+                    clientId: this.clientId,
+                    errorMessage: error.message
+                }
+            );
+
+            await this.updateStatus(CHECK_TYPES.DP, STATUS.DOWN, this.dpWorkerTimeout, error.message, {
+                reason: 'DP Worker Timeout'
+            });
         } finally {
             this.dpWorkerActive = false;
         }

@@ -43,7 +43,7 @@ jobs:
       run: cd client && npm install
 
     - name: Run frontend tests
-      run: cd client && npm test -- --run --coverage
+      run: cd client && npm test -- --coverage
       env:
         CI: true
 
