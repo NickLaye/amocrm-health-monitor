@@ -11,7 +11,7 @@ const logger = createLogger('AuthLimiter');
  */
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 10, // Limit each IP to 10 requests per windowMs
+    limit: 100000, // Effectively disable for legitimate traffic but keep for massive flood
     standardHeaders: 'draft-8', // Draft-8: `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: {

@@ -89,7 +89,7 @@ function authenticateSSE(req, res, next) {
   const verification = validateSseToken(token, requestedClientId);
   if (!verification.valid) {
     const status = verification.reason === 'client_mismatch' ? 403 : 401;
-    logger.warn(`SSE authentication failed (${verification.reason}) from IP ${req.ip}`);
+    logger.warn(`SSE authentication failed (${verification.reason}) for client ${requestedClientId} from IP ${req.ip}. Token: ${token ? token.substring(0, 8) + '...' : 'null'}`);
     return res.status(status).json({
       success: false,
       error: 'Unauthorized - Invalid or expired SSE token'
@@ -107,12 +107,12 @@ function authenticateSSE(req, res, next) {
 function authenticateAPI(req, res, next) {
   const apiKey = req.headers['x-api-key'];
   const apiSecret = process.env.API_SECRET;
-  
+
   // If no API_SECRET set, allow all
   if (!apiSecret) {
     return next();
   }
-  
+
   if (apiKey === apiSecret) {
     next();
   } else {

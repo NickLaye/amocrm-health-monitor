@@ -24,16 +24,15 @@ class HealthChecks {
         let httpStatus = null;
         try {
             const accessToken = await this.getAccessToken();
-            const response = await axios.get(
-                `https://${this.domain}/api/v4/leads?page=1&limit=1`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    },
-                    timeout: this.timeoutThreshold,
-                    validateStatus: (status) => status < 500
-                }
-            );
+            const response = await this.request({
+                method: 'get',
+                url: `https://${this.domain}/api/v4/leads?page=1&limit=1`,
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                timeout: this.timeoutThreshold,
+                validateStatus: (status) => status < 500
+            });
 
             httpStatus = response.status;
             const responseTime = Date.now() - startTime;
@@ -72,9 +71,10 @@ class HealthChecks {
 
             logger.debug(`POST API check: updating deal ${testEntity.dealId}, field ${testEntity.fieldId}`);
 
-            const response = await axios.patch(
-                `https://${this.domain}/api/v4/leads/${testEntity.dealId}`,
-                {
+            const response = await this.request({
+                method: 'patch',
+                url: `https://${this.domain}/api/v4/leads/${testEntity.dealId}`,
+                data: {
                     custom_fields_values: [
                         {
                             field_id: testEntity.fieldId,
@@ -86,15 +86,13 @@ class HealthChecks {
                         }
                     ]
                 },
-                {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    timeout: this.timeoutThreshold,
-                    validateStatus: (status) => status < 500
-                }
-            );
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                },
+                timeout: this.timeoutThreshold,
+                validateStatus: (status) => status < 500
+            });
 
             httpStatus = response.status;
             const responseTime = Date.now() - startTime;
@@ -130,14 +128,13 @@ class HealthChecks {
         const startTime = Date.now();
         let httpStatus = null;
         try {
-            const response = await axios.get(
-                `https://${this.domain}`,
-                {
-                    timeout: this.timeoutThreshold,
-                    maxRedirects: 5,
-                    validateStatus: (status) => status < 500
-                }
-            );
+            const response = await this.request({
+                method: 'get',
+                url: `https://${this.domain}`,
+                timeout: this.timeoutThreshold,
+                maxRedirects: 5,
+                validateStatus: (status) => status < 500
+            });
 
             httpStatus = response.status;
             const responseTime = Date.now() - startTime;
@@ -170,16 +167,15 @@ class HealthChecks {
         let httpStatus = null;
         try {
             const accessToken = await this.getAccessToken();
-            const response = await axios.get(
-                `https://${this.domain}/api/v4/webhooks`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`
-                    },
-                    timeout: this.timeoutThreshold,
-                    validateStatus: (status) => status < 500
-                }
-            );
+            const response = await this.request({
+                method: 'get',
+                url: `https://${this.domain}/api/v4/webhooks`,
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                timeout: this.timeoutThreshold,
+                validateStatus: (status) => status < 500
+            });
 
             httpStatus = response.status;
             const responseTime = Date.now() - startTime;
