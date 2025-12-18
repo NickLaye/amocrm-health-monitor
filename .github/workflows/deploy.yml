@@ -193,24 +193,39 @@ jobs:
         if: steps.check_secrets.outputs.secrets_configured == 'true'
         continue-on-error: true
         run: |
-          echo "Waiting 15 seconds for application to start..."
-          sleep 15
+          echo "Waiting 20 seconds for application to start..."
+          sleep 20
           
           echo "Checking health endpoint..."
-          if response=$(curl -k -s -o /dev/null -w "%{http_code}" https://${{ secrets.SERVER_HOST }}/health 2>&1); then
-            echo "Response code: $response"
-            if [ "$response" = "200" ]; then
-              echo "✅ Deployment successful! Health check passed."
-              exit 0
+          max_attempts=5
+          attempt=1
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt/$max_attempts..."
+            if response=$(curl -k -s -o /dev/null -w "%{http_code}" https://${{ secrets.SERVER_HOST }}/health 2>&1); then
+              echo "Response code: $response"
+              if [ "$response" = "200" ]; then
+                echo "✅ Deployment successful! Health check passed."
+                exit 0
+              else
+                echo "⚠️ Health check returned status code: $response"
+                if [ $attempt -lt $max_attempts ]; then
+                  echo "Retrying in 5 seconds..."
+                  sleep 5
+                fi
+              fi
             else
-              echo "⚠️ Health check returned status code: $response (non-200 but server responding)"
-              exit 0
+              echo "⚠️ Health check could not connect to server"
+              if [ $attempt -lt $max_attempts ]; then
+                echo "Retrying in 5 seconds..."
+                sleep 5
+              fi
             fi
-          else
-            echo "⚠️ Health check could not connect to server (this might be temporary)"
-            echo "Please check manually: https://${{ secrets.SERVER_HOST }}"
-            exit 0
-          fi
+            attempt=$((attempt + 1))
+          done
+          
+          echo "⚠️ Health check failed after $max_attempts attempts"
+          echo "Please check manually: https://${{ secrets.SERVER_HOST }}/health"
+          exit 0
 
       - name: Rollback on failure
         if: failure() && steps.check_secrets.outputs.secrets_configured == 'true'
