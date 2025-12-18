@@ -36,9 +36,12 @@ class AppServer {
         this.setupBasicMiddleware();
         this.setupAuthMiddleware();
         this.setupRateLimiting();
-        this.setupRoutes();
-        // Health check MUST be registered before static files to avoid conflicts
+        
+        // Health check MUST be registered FIRST, before all other routes
+        // This ensures it's never intercepted by static files or catch-all routes
         this.setupHealthCheck();
+        
+        this.setupRoutes();
         this.setupStaticServing();
         this.setupSPACatchAll();
         this.setupErrorHandling();
@@ -200,7 +203,15 @@ class AppServer {
 
             if (buildPath) {
                 this.logger.info(`Serving static files from: ${buildPath}`);
-                this.app.use(express.static(buildPath));
+                // Use a function to skip /health endpoint explicitly
+                this.app.use((req, res, next) => {
+                    // Skip /health endpoint - it's handled by setupHealthCheck
+                    if (req.path === '/health' || req.originalUrl === '/health') {
+                        return next();
+                    }
+                    // Use express.static for all other requests
+                    express.static(buildPath)(req, res, next);
+                });
             } else {
                 this.logger.warn('No client build directory found; skipping static asset hosting.');
             }
@@ -229,6 +240,7 @@ class AppServer {
 
     setupSPACatchAll() {
         // SPA catch-all route - must be last, after health check
+        // Explicitly exclude /health to prevent it from being caught
         if (process.env.NODE_ENV === 'production') {
             const candidatePaths = [
                 path.join(__dirname, '../client/dist'),
@@ -239,7 +251,11 @@ class AppServer {
             const buildPath = candidatePaths.find((candidate) => fs.existsSync(candidate));
 
             if (buildPath) {
-                this.app.get(/.*/, (req, res) => {
+                this.app.get(/.*/, (req, res, next) => {
+                    // Explicitly skip /health endpoint - it should be handled by setupHealthCheck
+                    if (req.path === '/health' || req.originalUrl === '/health') {
+                        return next();
+                    }
                     res.sendFile(path.join(buildPath, 'index.html'));
                 });
             }
