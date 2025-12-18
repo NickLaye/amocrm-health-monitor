@@ -55,8 +55,13 @@ jobs:
         run: |
           mkdir -p deploy
           cp -r server deploy/
-          # Frontend is deployed manually to preserve working bundle
-          # cp -r client/build deploy/client-build
+          # Include built frontend in the deployment
+          if [ -d "client/dist" ]; then
+            cp -r client/dist deploy/client-build
+          else
+            echo "Error: client/dist not found"
+            exit 1
+          fi
           cp package.json deploy/
           cp package-lock.json deploy/
           cp nginx.conf deploy/ || echo "nginx.conf not found"
