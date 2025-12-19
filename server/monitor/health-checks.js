@@ -4,7 +4,7 @@
  */
 
 const axios = require('axios');
-const { CHECK_TYPES } = require('../config/constants');
+const { CHECK_TYPES, STATUS } = require('../config/constants');
 const { createLogger } = require('../utils/logger');
 const { extractErrorMessage } = require('../utils/http-helpers');
 
@@ -64,10 +64,28 @@ class HealthChecks {
     async checkPostAPI() {
         const startTime = Date.now();
         let httpStatus = null;
+        
+        // Check if test entity is configured
+        const testEntity = this.testEntity;
+        if (!testEntity || !testEntity.dealId || !testEntity.fieldId || 
+            testEntity.dealId === 0 || testEntity.fieldId === 0) {
+            logger.warn('POST API check skipped: AMOCRM_TEST_DEAL_ID or AMOCRM_TEST_FIELD_ID not configured');
+            const responseTime = Date.now() - startTime;
+            const baseResult = {
+                status: STATUS.UNKNOWN,
+                reason: 'not_configured',
+                message: 'Test entity not configured (AMOCRM_TEST_DEAL_ID or AMOCRM_TEST_FIELD_ID missing)'
+            };
+            const status = await this.finalizeCheckResult(CHECK_TYPES.POST, baseResult, responseTime, {
+                httpStatus: null,
+                errorMessage: 'Test entity not configured'
+            });
+            return { status, responseTime, error: 'Test entity not configured', httpStatus: null };
+        }
+        
         try {
             const accessToken = await this.getAccessToken();
             const timestamp = Math.floor(Date.now() / 1000);
-            const testEntity = this.testEntity;
 
             logger.debug(`POST API check: updating deal ${testEntity.dealId}, field ${testEntity.fieldId}`);
 
@@ -105,7 +123,24 @@ class HealthChecks {
         } catch (error) {
             const responseTime = Date.now() - startTime;
             httpStatus = error?.response?.status || null;
-            const errorMessage = extractErrorMessage(error);
+            let errorMessage = extractErrorMessage(error);
+            
+            // Special handling for HTTP 400 - likely invalid dealId or fieldId
+            if (httpStatus === 400) {
+                const errorData = error?.response?.data;
+                if (errorData && (typeof errorData === 'object')) {
+                    const detail = errorData.detail || errorData.title || errorData.message || '';
+                    if (detail.includes('не найден') || detail.includes('not found') || 
+                        detail.includes('не существует') || detail.includes('does not exist')) {
+                        errorMessage = `HTTP 400: Test entity not found (dealId: ${testEntity.dealId}, fieldId: ${testEntity.fieldId}). Please configure valid AMOCRM_TEST_DEAL_ID and AMOCRM_TEST_FIELD_ID`;
+                    } else {
+                        errorMessage = `HTTP 400: ${detail || 'Bad Request'}`;
+                    }
+                } else {
+                    errorMessage = `HTTP 400: Bad Request (dealId: ${testEntity.dealId}, fieldId: ${testEntity.fieldId})`;
+                }
+            }
+            
             const baseResult = this.evaluateBaseStatus(CHECK_TYPES.POST, { responseTime, httpStatus, errorMessage });
             const status = await this.finalizeCheckResult(CHECK_TYPES.POST, baseResult, responseTime, {
                 httpStatus,
@@ -114,7 +149,7 @@ class HealthChecks {
                 errorPayload: error?.response?.data
             });
 
-            logger.error(`POST API check failed: ${errorMessage}`, { responseTime, httpStatus });
+            logger.error(`POST API check failed: ${errorMessage}`, { responseTime, httpStatus, dealId: testEntity.dealId, fieldId: testEntity.fieldId });
 
             return { status, responseTime, error: errorMessage, httpStatus };
         }
