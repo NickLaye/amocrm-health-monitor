@@ -31,7 +31,36 @@ class StatusManager {
     evaluateBaseStatus(checkType, { responseTime, httpStatus = null, errorMessage = null }) {
         const thresholds = this.getLatencyThresholds(checkType);
 
+        // Special handling for authentication errors (401)
+        // These should be WARNING, not DOWN, as they can be recovered by token refresh
+        if (httpStatus === 401) {
+            // Specialized handling for WEB check: 401 is expected on the login page
+            if (checkType === 'WEB') {
+                return {
+                    status: STATUS.UP,
+                    reason: 'ok',
+                    message: `HTTP ${httpStatus} (Login Page)`
+                };
+            }
+            // For API checks, 401 means authentication issue - should be WARNING
+            return {
+                status: STATUS.WARNING,
+                reason: 'auth_error',
+                message: `HTTP 401: Unauthorized`
+            };
+        }
+
         if (errorMessage) {
+            // Check if error message indicates authentication issue
+            if (errorMessage.toLowerCase().includes('unauthorized') || 
+                errorMessage.toLowerCase().includes('401') ||
+                errorMessage.toLowerCase().includes('token')) {
+                return {
+                    status: STATUS.WARNING,
+                    reason: 'auth_error',
+                    message: errorMessage
+                };
+            }
             return {
                 status: STATUS.DOWN,
                 reason: 'runtime_error',
@@ -48,15 +77,6 @@ class StatusManager {
                 };
             }
             if (httpStatus >= 400) {
-                // Specialized handling for WEB check: 401 is expected on the login page
-                if (checkType === 'WEB' && httpStatus === 401) {
-                    return {
-                        status: STATUS.UP,
-                        reason: 'ok',
-                        message: `HTTP ${httpStatus} (Login Page)`
-                    };
-                }
-
                 return {
                     status: STATUS.WARNING,
                     reason: 'http_4xx',

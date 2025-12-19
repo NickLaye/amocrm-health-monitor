@@ -113,7 +113,9 @@ class TokenManager {
     }
 
     if (!this.currentTokens) {
-      throw new Error('No tokens available. Please initialize tokens first.');
+      const error = new Error('No tokens available. Please initialize tokens first.');
+      error.code = 'NO_TOKENS';
+      throw error;
     }
 
     if (this.isTokenExpired()) {
@@ -125,13 +127,24 @@ class TokenManager {
         // If refresh fails, try to reinitialize from env if available
         if (this.initialTokens?.refresh_token) {
           this.logger.info('Attempting to reinitialize tokens from environment...');
-          const reinitialized = await this.initializeFromEnv();
-          if (reinitialized && this.isTokenExpired()) {
-            // If still expired after reinit, try one more refresh
-            await this.refreshToken();
+          try {
+            const reinitialized = await this.initializeFromEnv();
+            if (reinitialized && this.isTokenExpired()) {
+              // If still expired after reinit, try one more refresh
+              await this.refreshToken();
+            }
+          } catch (reinitError) {
+            this.logger.error('Failed to reinitialize tokens', reinitError);
+            const authError = new Error(`Token refresh failed: ${error.message || 'Unauthorized'}`);
+            authError.code = 'TOKEN_REFRESH_FAILED';
+            authError.originalError = error;
+            throw authError;
           }
         } else {
-          throw error;
+          const authError = new Error(`Token refresh failed: ${error.message || 'Unauthorized'}`);
+          authError.code = 'TOKEN_REFRESH_FAILED';
+          authError.originalError = error;
+          throw authError;
         }
       }
     }
