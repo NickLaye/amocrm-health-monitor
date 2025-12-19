@@ -43,11 +43,11 @@ const STATUS = {
  * warningMs — деградация, downMs — критическое превышение.
  */
 const LATENCY_THRESHOLDS = {
-  GET: { warningMs: 7000, downMs: 12000 },
-  POST: { warningMs: 7000, downMs: 12000 },
-  WEB: { warningMs: 7000, downMs: 12000 },
-  HOOK: { warningMs: 7000, downMs: 12000 },
-  DP: { warningMs: 7000, downMs: 12000 }
+  GET: { warningMs: 10000, downMs: 15000 },
+  POST: { warningMs: 10000, downMs: 15000 },
+  WEB: { warningMs: 10000, downMs: 15000 },
+  HOOK: { warningMs: 10000, downMs: 15000 },
+  DP: { warningMs: 10000, downMs: 15000 }
 };
 
 /**
