@@ -286,7 +286,8 @@ class AmoCRMMonitor {
         this.notifyListeners(checkType, this.currentStatus[checkType]);
 
         // Warning Notifications logic with debounce
-        if (status === STATUS.WARNING && previousStatus !== STATUS.WARNING) {
+        // Skip warning notifications for partial recovery (DOWN -> WARNING)
+        if (status === STATUS.WARNING && previousStatus !== STATUS.WARNING && previousStatus !== STATUS.DOWN) {
             // Check debounce before sending warning notification
             const warningKey = `${this.clientId}:${checkType}:warning`;
             const lastWarningNotification = this.lastNotificationTime.get(warningKey) || 0;
