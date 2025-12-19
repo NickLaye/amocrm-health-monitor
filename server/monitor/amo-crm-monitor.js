@@ -116,9 +116,19 @@ class AmoCRMMonitor {
         });
 
         // Escalation Config
-        this.warningEscalationThreshold = 3;
-        this.warningEscalationWindowMs = 15 * 60 * 1000;
-        this.recoverySuccessThreshold = 2;
+        this.warningEscalationThreshold = pickInt(
+            clientConfig.monitoring?.warningEscalationThreshold,
+            DEFAULTS.WARNING_ESCALATION_THRESHOLD
+        );
+        this.warningEscalationWindowMs = pickMs(
+            clientConfig.monitoring?.warningEscalationWindow,
+            'WARNING_ESCALATION_WINDOW_MS',
+            DEFAULTS.WARNING_ESCALATION_WINDOW_MS
+        );
+        this.recoverySuccessThreshold = pickInt(
+            clientConfig.monitoring?.recoverySuccessThreshold,
+            DEFAULTS.RECOVERY_SUCCESS_THRESHOLD
+        );
 
         this.lastNotificationTime = new Map();
         this.intervalId = null;
@@ -308,10 +318,21 @@ class AmoCRMMonitor {
         }
 
         // Incident Logic (Down / Up)
+        // Handle DOWN transition: create incident when entering DOWN from any status
         if (status === STATUS.DOWN && previousStatus !== STATUS.DOWN) {
             await this.handleDownTransition(checkType, errorMessage, previousStatus);
-        } else if (status === STATUS.UP && previousStatus === STATUS.DOWN) {
+        }
+        // Handle UP transition: close incident when fully recovered (UP after DOWN)
+        // Also handle case when escalation returns WARNING after DOWN (partial recovery)
+        else if (status === STATUS.UP && previousStatus === STATUS.DOWN) {
             await this.handleUpTransition(checkType);
+        }
+        // Handle case when status was DOWN but escalation returned WARNING (partial recovery)
+        // This happens when recoverySuccessThreshold is not met yet
+        else if (status === STATUS.WARNING && previousStatus === STATUS.DOWN) {
+            // Don't close incident yet, but also don't create new one
+            // The incident will be closed when status becomes UP
+            logger.debug(`Partial recovery for ${checkType}: DOWN -> WARNING (incident remains open)`);
         }
     }
 
