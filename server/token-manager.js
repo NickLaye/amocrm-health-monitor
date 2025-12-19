@@ -179,6 +179,17 @@ class TokenManager {
     // If we only have refresh_token, use it to get a new access_token
     if (refreshToken && !accessToken) {
       this.logger.info('Only refresh token provided, obtaining new access token...');
+      
+      // Check if we have all required parameters for token refresh
+      if (!this.domain || !this.clientIdValue || !this.clientSecret) {
+        this.logger.error('Missing required parameters for token refresh', {
+          hasDomain: !!this.domain,
+          hasClientId: !!this.clientIdValue,
+          hasClientSecret: !!this.clientSecret
+        });
+        return false;
+      }
+      
       try {
         // Temporarily set currentTokens with refresh_token to allow refreshToken() to work
         this.currentTokens = {
@@ -189,7 +200,11 @@ class TokenManager {
         this.logger.info('Successfully obtained new access token from refresh token');
         return true;
       } catch (error) {
-        this.logger.error('Failed to obtain access token from refresh token', error);
+        this.logger.error('Failed to obtain access token from refresh token', {
+          error: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         this.currentTokens = null;
         return false;
       }
