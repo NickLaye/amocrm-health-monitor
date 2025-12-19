@@ -809,6 +809,8 @@ class NotificationService {
       latency_warning: 'Высокая задержка',
       latency_down: 'Критическая задержка',
       runtime_error: 'Ошибка проверки',
+      auth_error: 'Ошибка аутентификации',
+      recovery_warning: 'Частичное восстановление',
       ok: 'Норма'
     };
     return map[reason] || reason || 'Неизвестно';
