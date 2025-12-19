@@ -275,15 +275,22 @@ class AmoCRMMonitor {
 
         this.notifyListeners(checkType, this.currentStatus[checkType]);
 
-        // Warning Notifications logic
+        // Warning Notifications logic with debounce
         if (status === STATUS.WARNING && previousStatus !== STATUS.WARNING) {
-            // Send warning
-            await this.notifications.sendWarningNotification(checkType, {
-                clientId: this.clientId,
-                reason: details.reason,
-                httpStatus: details.httpStatus,
-                responseTime
-            });
+            // Check debounce before sending warning notification
+            const warningKey = `${this.clientId}:${checkType}:warning`;
+            const lastWarningNotification = this.lastNotificationTime.get(warningKey) || 0;
+            if (Date.now() - lastWarningNotification >= this.notificationDebounceMs) {
+                await this.notifications.sendWarningNotification(checkType, {
+                    clientId: this.clientId,
+                    reason: details.reason,
+                    httpStatus: details.httpStatus,
+                    responseTime
+                });
+                this.lastNotificationTime.set(warningKey, Date.now());
+            } else {
+                logger.debug(`Skipping warning notification for ${checkType} (debounce active)`);
+            }
         } else if (previousStatus === STATUS.WARNING && status !== STATUS.WARNING) {
             if (status === STATUS.UP) {
                 await this.notifications.sendWarningResolved(checkType, { clientId: this.clientId, resolvedAt: now });
