@@ -293,7 +293,15 @@ class AmoCRMMonitor {
             }
         } else if (previousStatus === STATUS.WARNING && status !== STATUS.WARNING) {
             if (status === STATUS.UP) {
-                await this.notifications.sendWarningResolved(checkType, { clientId: this.clientId, resolvedAt: now });
+                // Add debounce for warning resolved notifications
+                const warningResolvedKey = `${this.clientId}:${checkType}:warning-resolved`;
+                const lastWarningResolvedNotification = this.lastNotificationTime.get(warningResolvedKey) || 0;
+                if (Date.now() - lastWarningResolvedNotification >= this.notificationDebounceMs) {
+                    await this.notifications.sendWarningResolved(checkType, { clientId: this.clientId, resolvedAt: now });
+                    this.lastNotificationTime.set(warningResolvedKey, Date.now());
+                } else {
+                    logger.debug(`Skipping warning resolved notification for ${checkType} (debounce active)`);
+                }
             } else {
                 this.notifications.dismissWarning(checkType, { clientId: this.clientId });
             }
