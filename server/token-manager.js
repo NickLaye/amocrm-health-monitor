@@ -152,26 +152,50 @@ class TokenManager {
     return this.currentTokens.access_token;
   }
 
-  initializeFromEnv() {
+  async initializeFromEnv() {
     const accessToken = this.initialTokens?.access_token;
     const refreshToken = this.initialTokens?.refresh_token;
 
-    if (!accessToken || !refreshToken) {
-      this.logger.warn('Initial tokens not provided');
+    if (!refreshToken) {
+      this.logger.warn('Refresh token not provided in environment');
       return false;
     }
 
-    const tokens = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: Math.floor(Date.now() / 1000) + 3600, // Default to 1 hour
-      token_type: 'Bearer',
-      expires_in: 3600,
-    };
+    // If we have both tokens, use them directly
+    if (accessToken && refreshToken) {
+      const tokens = {
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: Math.floor(Date.now() / 1000) + 3600, // Default to 1 hour
+        token_type: 'Bearer',
+        expires_in: 3600,
+      };
 
-    this.saveTokens(tokens);
-    this.logger.info('Tokens initialized from provided configuration (forcing initial refresh)');
-    return true;
+      this.saveTokens(tokens);
+      this.logger.info('Tokens initialized from environment variables');
+      return true;
+    }
+
+    // If we only have refresh_token, use it to get a new access_token
+    if (refreshToken && !accessToken) {
+      this.logger.info('Only refresh token provided, obtaining new access token...');
+      try {
+        // Temporarily set currentTokens with refresh_token to allow refreshToken() to work
+        this.currentTokens = {
+          refresh_token: refreshToken,
+          expires_at: 0 // Force refresh
+        };
+        await this.refreshToken();
+        this.logger.info('Successfully obtained new access token from refresh token');
+        return true;
+      } catch (error) {
+        this.logger.error('Failed to obtain access token from refresh token', error);
+        this.currentTokens = null;
+        return false;
+      }
+    }
+
+    return false;
   }
 
   startAutoRefresh() {
