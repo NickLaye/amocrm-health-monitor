@@ -183,6 +183,18 @@ class StatusManager {
             storedErrorMessage = 'Сервис в состоянии предупреждения';
         }
 
+        // Determine correct reason: if status was escalated from UP to WARNING,
+        // it means recovery threshold not met yet - use recovery_warning reason
+        let finalReason = baseResult.reason;
+        if (finalStatus === STATUS.WARNING && baseResult.status === STATUS.UP) {
+            // Status was escalated from UP to WARNING (recovery threshold)
+            finalReason = 'recovery_warning';
+        } else if (finalStatus === STATUS.DOWN && baseResult.status === STATUS.WARNING) {
+            // Status was escalated from WARNING to DOWN (warning threshold exceeded)
+            // Keep the original reason (latency_warning, http_4xx, etc.)
+            finalReason = baseResult.reason;
+        }
+
         await this.database.insertHealthCheck(checkType, finalStatus, responseTime, {
             clientId: this.clientId,
             httpStatus,
@@ -193,7 +205,7 @@ class StatusManager {
 
         await this.updateStatus(checkType, finalStatus, responseTime, storedErrorMessage, {
             httpStatus,
-            reason: baseResult.reason,
+            reason: finalReason,
             errorCode,
             meta
         });
