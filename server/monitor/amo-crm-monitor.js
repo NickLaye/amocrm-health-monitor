@@ -322,10 +322,19 @@ class AmoCRMMonitor {
         if (status === STATUS.DOWN && previousStatus !== STATUS.DOWN) {
             await this.handleDownTransition(checkType, errorMessage, previousStatus);
         }
-        // Handle UP transition: close incident when fully recovered (UP after DOWN)
-        // Also handle case when escalation returns WARNING after DOWN (partial recovery)
-        else if (status === STATUS.UP && previousStatus === STATUS.DOWN) {
-            await this.handleUpTransition(checkType);
+        // Handle UP transition: close incident when fully recovered
+        // Check for open incident instead of checking previousStatus to handle gradual recovery:
+        // DOWN -> WARNING (partial) -> UP (full recovery)
+        // Also handles direct DOWN -> UP transition
+        else if (status === STATUS.UP) {
+            // Only check for open incident if we're transitioning from DOWN or WARNING
+            // This avoids unnecessary DB queries when status was already UP
+            if (previousStatus === STATUS.DOWN || previousStatus === STATUS.WARNING) {
+                const openIncident = await this.database.getOpenIncident(checkType, this.clientId);
+                if (openIncident) {
+                    await this.handleUpTransition(checkType);
+                }
+            }
         }
         // Handle case when status was DOWN but escalation returned WARNING (partial recovery)
         // This happens when recoverySuccessThreshold is not met yet
