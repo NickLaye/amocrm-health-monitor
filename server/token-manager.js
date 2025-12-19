@@ -149,6 +149,12 @@ class TokenManager {
       }
     }
 
+    if (!this.currentTokens || !this.currentTokens.access_token) {
+      const error = new Error('No access token available after initialization');
+      error.code = 'NO_ACCESS_TOKEN';
+      throw error;
+    }
+
     return this.currentTokens.access_token;
   }
 
