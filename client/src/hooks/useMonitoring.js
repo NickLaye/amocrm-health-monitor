@@ -38,6 +38,7 @@ export function useMonitoring() {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const eventSourceRef = useRef(null);
+  const clientsLoadedRef = useRef(false);
 
   const fetchData = useCallback(async (clientId) => {
     if (!clientId) return;
@@ -80,7 +81,13 @@ export function useMonitoring() {
   }, []);
 
   const loadClients = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (clientsLoadedRef.current) {
+      return;
+    }
+
     try {
+      clientsLoadedRef.current = true;
       const clientList = await api.getClients();
       setClients(clientList);
 
@@ -100,12 +107,14 @@ export function useMonitoring() {
       console.error('Error fetching clients:', err);
       setError(handleApiError(err));
       setLoading(false);
+      clientsLoadedRef.current = false; // Allow retry on error
     }
   }, [getInitialClientId]);
 
   useEffect(() => {
     loadClients();
-  }, [loadClients]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Load only once on mount
 
   useEffect(() => {
     let mounted = true;

@@ -11,6 +11,11 @@ class ApiService {
       baseURL: API_BASE_URL,
       timeout: 10000
     });
+    // Cache for clients list (rarely changes)
+    this.clientsCache = null;
+    this.clientsCacheTime = null;
+    this.clientsCacheTtl = 5 * 60 * 1000; // 5 minutes
+    this.clientsRequestPromise = null; // Prevent parallel requests
   }
 
   buildParams(params = {}, clientId) {
@@ -20,14 +25,43 @@ class ApiService {
     return params;
   }
 
-  async getClients() {
-    try {
-      const response = await this.client.get('/clients');
-      return response.data.data || [];
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-      throw error;
+  async getClients(forceRefresh = false) {
+    // Return cached data if still valid
+    if (!forceRefresh && this.clientsCache && this.clientsCacheTime) {
+      const age = Date.now() - this.clientsCacheTime;
+      if (age < this.clientsCacheTtl) {
+        return this.clientsCache;
+      }
     }
+
+    // If there's already a request in progress, wait for it
+    if (this.clientsRequestPromise) {
+      try {
+        return await this.clientsRequestPromise;
+      } catch (error) {
+        // If the pending request fails, allow retry
+        this.clientsRequestPromise = null;
+        throw error;
+      }
+    }
+
+    // Start new request
+    this.clientsRequestPromise = (async () => {
+      try {
+        const response = await this.client.get('/clients');
+        const clientList = response.data.data || [];
+        this.clientsCache = clientList;
+        this.clientsCacheTime = Date.now();
+        this.clientsRequestPromise = null;
+        return clientList;
+      } catch (error) {
+        this.clientsRequestPromise = null;
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+    })();
+
+    return await this.clientsRequestPromise;
   }
 
   // Get current status
