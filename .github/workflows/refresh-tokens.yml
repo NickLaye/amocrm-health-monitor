@@ -1,0 +1,76 @@
+name: Refresh amoCRM Tokens on Server
+
+on:
+  workflow_dispatch:
+
+jobs:
+  refresh-tokens:
+    name: Push fresh tokens to server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Update tokens on server
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          ACCESS_TOKEN: ${{ secrets.AMOCRM_ACCESS_TOKEN }}
+          REFRESH_TOKEN: ${{ secrets.AMOCRM_REFRESH_TOKEN }}
+        run: |
+          EXPIRES_AT=$(date -d "+24 hours" +%s 2>/dev/null || date -v+24H +%s)
+
+          TOKENS_JSON=$(cat <<EOF
+          {
+            "token_type": "Bearer",
+            "expires_in": 86400,
+            "access_token": "${ACCESS_TOKEN}",
+            "refresh_token": "${REFRESH_TOKEN}",
+            "expires_at": ${EXPIRES_AT}
+          }
+          EOF
+          )
+
+          ssh ${SERVER_USER}@${SERVER_HOST} bash -s <<ENDSSH
+            set -e
+            DEPLOY_PATH="${DEPLOY_PATH}"
+            DATA_DIR="\${DEPLOY_PATH}/current/data"
+            mkdir -p "\${DATA_DIR}"
+
+            # Backup old tokens
+            if [ -f "\${DATA_DIR}/default.tokens.json" ]; then
+              cp "\${DATA_DIR}/default.tokens.json" "\${DATA_DIR}/default.tokens.json.bak"
+              echo "Backed up old tokens"
+            fi
+
+            # Write new tokens
+            cat > "\${DATA_DIR}/default.tokens.json" << 'JSONEOF'
+          $(echo "${TOKENS_JSON}")
+          JSONEOF
+
+            echo "Tokens written to \${DATA_DIR}/default.tokens.json"
+            echo "Reloading PM2..."
+            pm2 reload amocrm-health-monitor || pm2 restart amocrm-health-monitor
+            echo "Done"
+          ENDSSH
+
+      - name: Verify tokens loaded
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          sleep 10
+          STATUS=$(curl -sk https://${{ secrets.SERVER_HOST }}/health | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('status','?'))" 2>/dev/null || echo "failed")
+          echo "Health status: $STATUS"
+          if [ "$STATUS" = "ok" ]; then
+            echo "✅ Server is healthy"
+          else
+            echo "⚠️ Server status: $STATUS"
+          fi
