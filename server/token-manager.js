@@ -23,6 +23,8 @@ class TokenManager {
     }
     this.tokensFile = options.tokensFile || path.join(dataDir, `${this.clientId}.tokens.json`);
     this.currentTokens = null;
+    /** @type {Promise<string>|null} Coalesce concurrent refreshes (parallel health checks + 401 retries). */
+    this._refreshInFlight = null;
   }
 
   loadTokens() {
@@ -62,6 +64,22 @@ class TokenManager {
   }
 
   async refreshToken() {
+    if (this._refreshInFlight) {
+      return this._refreshInFlight;
+    }
+
+    this._refreshInFlight = (async () => {
+      try {
+        return await this._performRefresh();
+      } finally {
+        this._refreshInFlight = null;
+      }
+    })();
+
+    return this._refreshInFlight;
+  }
+
+  async _performRefresh() {
     if (!this.currentTokens || !this.currentTokens.refresh_token) {
       throw new Error('No refresh token available');
     }

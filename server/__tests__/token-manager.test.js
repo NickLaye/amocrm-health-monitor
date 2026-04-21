@@ -260,6 +260,45 @@ describe('TokenManager', () => {
             expect(manager.currentTokens.access_token).toBe('new-access-token');
         });
 
+        test('should coalesce concurrent refreshToken calls into one HTTP request', async () => {
+            const manager = new TokenManager({
+                clientId: 'test-client',
+                tokensFile: testTokensFile
+            });
+            manager.currentTokens = {
+                access_token: 'old-access',
+                refresh_token: 'old-refresh'
+            };
+
+            let resolvePost;
+            axios.post.mockImplementation(
+                () =>
+                    new Promise((resolve) => {
+                        resolvePost = resolve;
+                    })
+            );
+
+            const p1 = manager.refreshToken();
+            const p2 = manager.refreshToken();
+            const p3 = manager.refreshToken();
+
+            expect(axios.post).toHaveBeenCalledTimes(1);
+
+            resolvePost({
+                data: {
+                    access_token: 'new-access-token',
+                    refresh_token: 'new-refresh-token',
+                    expires_in: 86400
+                }
+            });
+
+            const [a, b, c] = await Promise.all([p1, p2, p3]);
+            expect(a).toBe('new-access-token');
+            expect(b).toBe('new-access-token');
+            expect(c).toBe('new-access-token');
+            expect(axios.post).toHaveBeenCalledTimes(1);
+        });
+
         test('should throw if no refresh token', async () => {
             const manager = new TokenManager({ clientId: 'test-client' });
             manager.currentTokens = { access_token: 'test' };
