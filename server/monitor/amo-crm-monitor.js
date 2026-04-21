@@ -74,6 +74,11 @@ class AmoCRMMonitor {
         this.checkInterval = pickMs(clientConfig.monitoring?.checkInterval, 'CHECK_INTERVAL', DEFAULTS.CHECK_INTERVAL);
         this.timeoutThreshold = pickMs(clientConfig.monitoring?.requestTimeout, 'TIMEOUT_THRESHOLD', DEFAULTS.TIMEOUT_THRESHOLD);
         this.notificationDebounceMs = pickMs(clientConfig.monitoring?.notificationDebounce, 'NOTIFICATION_DEBOUNCE_MS', 5 * 60 * 1000); // 5 min default
+        this.authErrorNotificationCooldownMs = pickMs(
+            clientConfig.monitoring?.authErrorNotificationCooldown,
+            'AUTH_ERROR_NOTIFICATION_COOLDOWN_MS',
+            30 * 60 * 1000
+        );
 
         // Dependencies
         this.database = database;
@@ -179,16 +184,26 @@ class AmoCRMMonitor {
 
             if (response.status === 401 && hasAuthHeader && retryCount === 0) {
                 logger.warn(`Received 401 response for client ${this.clientId}. Attempting proactive token refresh...`);
-                const newToken = await this.tokenManager.refreshToken();
+                try {
+                    const newToken = await this.tokenManager.refreshToken();
 
-                const updatedConfig = { ...config };
-                updatedConfig.headers = {
-                    ...updatedConfig.headers,
-                    'Authorization': `Bearer ${newToken}`
-                };
+                    const updatedConfig = { ...config };
+                    updatedConfig.headers = {
+                        ...updatedConfig.headers,
+                        'Authorization': `Bearer ${newToken}`
+                    };
 
-                logger.info(`Token refreshed successfully after 401 response for ${this.clientId}. Retrying request...`);
-                return await this.request(updatedConfig, retryCount + 1);
+                    logger.info(`Token refreshed successfully after 401 response for ${this.clientId}. Retrying request...`);
+                    return await this.request(updatedConfig, retryCount + 1);
+                } catch (refreshError) {
+                    logger.error(`Token refresh failed after 401 response for ${this.clientId}`, {
+                        error: refreshError.message
+                    });
+                    // Rethrow as explicit auth error so evaluateBaseStatus maps it to auth_error (→ WARNING, not DOWN)
+                    const authError = new Error(`HTTP 401: Unauthorized (token refresh failed: ${refreshError.message})`);
+                    authError.code = 'AUTH_REFRESH_FAILED';
+                    throw authError;
+                }
             }
 
             return response;
@@ -214,7 +229,10 @@ class AmoCRMMonitor {
                         error: refreshError.message,
                         originalError: error.message
                     });
-                    throw error;
+                    // Rethrow as explicit auth error so evaluateBaseStatus maps it to auth_error (→ WARNING, not DOWN)
+                    const authError = new Error(`HTTP 401: Unauthorized (token refresh failed: ${refreshError.message})`);
+                    authError.code = 'AUTH_REFRESH_FAILED';
+                    throw authError;
                 }
             }
             throw error;
@@ -289,9 +307,15 @@ class AmoCRMMonitor {
         // Skip warning notifications for partial recovery (DOWN -> WARNING)
         if (status === STATUS.WARNING && previousStatus !== STATUS.WARNING && previousStatus !== STATUS.DOWN) {
             // Check debounce before sending warning notification
-            const warningKey = `${this.clientId}:${checkType}:warning`;
+            const isAuthError = details.reason === 'auth_error';
+            const warningKey = isAuthError
+                ? `${this.clientId}:auth-warning`
+                : `${this.clientId}:${checkType}:warning`;
+            const warningCooldownMs = isAuthError
+                ? this.authErrorNotificationCooldownMs
+                : this.notificationDebounceMs;
             const lastWarningNotification = this.lastNotificationTime.get(warningKey) || 0;
-            if (Date.now() - lastWarningNotification >= this.notificationDebounceMs) {
+            if (Date.now() - lastWarningNotification >= warningCooldownMs) {
             await this.notifications.sendWarningNotification(checkType, {
                 clientId: this.clientId,
                 reason: details.reason,
