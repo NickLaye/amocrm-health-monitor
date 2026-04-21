@@ -4,7 +4,7 @@ const { validateHistory, validateIncidents, validateStats } = require('../../mid
 const database = require('../../database');
 const aggregator = require('../../aggregator');
 const { CHECK_TYPES, RESOLUTIONS } = require('../../config/constants');
-const { exportHealthChecksToCSV, exportIncidentsToCSV } = require('../../utils/export-helpers');
+const { exportHealthChecksToCSV, exportIncidentsToCSV, exportStatsToCSV } = require('../../utils/export-helpers');
 const {
     toNumber,
     normalizeResolution,
@@ -71,59 +71,68 @@ router.get('/stats', validateStats, asyncHandler(async (req, res) => {
     let stats;
     if (resolution === RESOLUTIONS.RAW) {
         const checkTypes = Object.values(CHECK_TYPES);
-        const rawStats = {};
-        // Note: This logic is duplicated from stats.js but simplified here for export
-        // Ideally should be shared logic but keeping it simple for now
+        stats = {};
         for (const checkType of checkTypes) {
-            // Limited export logic for RAW... relying on detailed stats from stats.js logic
-            // For CSV export usually user wants aggregated data or list
-            // Let's implement full aggregation for export as well
             const detailedStats = await database.getDetailedStatistics(checkType, hours);
             if (!detailedStats) {
-                rawStats[checkType] = buildDefaultStats(hours);
+                stats[checkType] = buildDefaultStats(hours);
             } else {
-                // ... construct stats object similar to stats.js ...
-                // For brevity, skipping full reconstruction here and handling aggregation path mostly
-                // Actual project requirement might vary. Assuming aggregation path is main use case.
-                // If RAW is needed, we should probably refactor stats logic into a service/domain file.
-                // For now, let's focus on the refactoring of existing logic.
+                stats[checkType] = {
+                    uptime: detailedStats.uptime,
+                    totalChecks: detailedStats.totalChecks,
+                    mttr: detailedStats.mttr,
+                    mtbf: detailedStats.mtbf,
+                    apdexScore: detailedStats.apdexScore,
+                    successRate: detailedStats.successRate,
+                    failureCount: detailedStats.failureCount,
+                    avgResponseTime: detailedStats.avgResponseTime,
+                    minResponseTime: detailedStats.minResponseTime,
+                    maxResponseTime: detailedStats.maxResponseTime,
+                    p95ResponseTime: detailedStats.p95ResponseTime,
+                    p99ResponseTime: detailedStats.p99ResponseTime,
+                    lastIncident: detailedStats.lastIncident,
+                    incidentCount: detailedStats.incidentCount,
+                    availability: detailedStats.availability,
+                    averageResponseTime: detailedStats.avgResponseTime,
+                    checkCount: detailedStats.totalChecks,
+                    percentile95: detailedStats.p95ResponseTime,
+                    apdex: detailedStats.apdexScore,
+                    errorRate: detailedStats.failureCount > 0
+                        ? parseFloat(((detailedStats.failureCount / detailedStats.totalChecks) * 100).toFixed(2))
+                        : 0,
+                    upChecks: detailedStats.totalChecks - detailedStats.failureCount - (detailedStats.warningCount || 0),
+                    downChecks: detailedStats.failureCount,
+                    warningChecks: detailedStats.warningCount || 0
+                };
             }
         }
-        // Minimal implementation for now to pass "existing behavior" check if any test relies on it
-        stats = {};
-    }
+    } else {
+        const bucketSize = aggregator.getBucketSize(resolution);
+        const { from, to } = getWindowBounds(hours, bucketSize);
+        const checkTypes = Object.values(CHECK_TYPES);
 
-    // Proper implementation using shared helpers
-    const bucketSize = aggregator.getBucketSize(resolution);
-    const { from, to } = getWindowBounds(hours, bucketSize);
-    const checkTypes = Object.values(CHECK_TYPES);
-
-    await aggregator.ensureAggregates({
-        resolution,
-        clientId,
-        from,
-        to,
-        checkTypes
-    });
-
-    stats = {};
-    for (const checkType of checkTypes) {
-        const rows = await database.getAggregates({
+        await aggregator.ensureAggregates({
             resolution,
             clientId,
-            checkType,
             from,
-            to
+            to,
+            checkTypes
         });
-        stats[checkType] = summarizeAggregatedStats(rows, hours);
+
+        stats = {};
+        for (const checkType of checkTypes) {
+            const rows = await database.getAggregates({
+                resolution,
+                clientId,
+                checkType,
+                from,
+                to
+            });
+            stats[checkType] = summarizeAggregatedStats(rows, hours);
+        }
     }
 
     if (format === 'csv') {
-        // Current export tool helper exportStatsToCSV is not imported in api.js?
-        // Wait, let me check api.js again.
-        // Line 744: const { exportHealthChecksToCSV, exportIncidentsToCSV, exportStatsToCSV, toJSON, generateReport } = require('./utils/export-helpers');
-        // It IS imported. So I need to import it here too.
-        const { exportStatsToCSV } = require('../../utils/export-helpers');
         const csv = exportStatsToCSV(stats);
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="stats-${Date.now()}.csv"`);

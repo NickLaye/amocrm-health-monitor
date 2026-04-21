@@ -2,6 +2,22 @@ const request = require('supertest');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { spawnSync } = require('child_process');
+
+function canListenOnSocket() {
+    const probe = "const http=require('http');const s=http.createServer();s.listen(0,'127.0.0.1',()=>s.close(()=>process.exit(0)));s.on('error',()=>process.exit(1));";
+    const result = spawnSync(process.execPath, ['-e', probe], { stdio: 'ignore' });
+    return result.status === 0;
+}
+const CAN_LISTEN_ON_SOCKET = canListenOnSocket();
+const REQUIRE_SOCKET_TESTS = process.env.CI === 'true' || process.env.REQUIRE_SOCKET_TESTS === 'true';
+if (REQUIRE_SOCKET_TESTS && !CAN_LISTEN_ON_SOCKET) {
+    throw new Error('Socket-based integration tests require bind permissions');
+}
+if (!REQUIRE_SOCKET_TESTS && !CAN_LISTEN_ON_SOCKET) {
+    console.warn('[integration] Skipping socket-based integration tests. Set REQUIRE_SOCKET_TESTS=true to enforce.');
+}
+const describeWithSockets = CAN_LISTEN_ON_SOCKET ? describe : describe.skip;
 
 // Mock dependencies
 jest.mock('../config/client-registry', () => ({
@@ -100,7 +116,7 @@ const monitor = require('../monitor-orchestrator');
 const database = require('../database');
 const apiRouter = require('../api');
 
-describe('Multi-tenant Integration Tests', () => {
+describeWithSockets('Multi-tenant Integration Tests', () => {
     let app;
 
     beforeAll(() => {

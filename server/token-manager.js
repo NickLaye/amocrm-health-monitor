@@ -131,7 +131,7 @@ class TokenManager {
             const reinitialized = await this.initializeFromEnv();
             if (reinitialized && this.isTokenExpired()) {
               // If still expired after reinit, try one more refresh
-              await this.refreshToken();
+      await this.refreshToken();
             }
           } catch (reinitError) {
             this.logger.error('Failed to reinitialize tokens', reinitError);
@@ -169,17 +169,17 @@ class TokenManager {
 
     // If we have both tokens, use them directly
     if (accessToken && refreshToken) {
-      const tokens = {
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        expires_at: Math.floor(Date.now() / 1000) + 3600, // Default to 1 hour
-        token_type: 'Bearer',
-        expires_in: 3600,
-      };
+    const tokens = {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: Math.floor(Date.now() / 1000) + 3600, // Default to 1 hour
+      token_type: 'Bearer',
+      expires_in: 3600,
+    };
 
-      this.saveTokens(tokens);
+    this.saveTokens(tokens);
       this.logger.info('Tokens initialized from environment variables');
-      return true;
+    return true;
     }
 
     // If we only have refresh_token, use it to get a new access_token

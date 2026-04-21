@@ -6,6 +6,7 @@ const fs = require('fs');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const basicAuth = require('express-basic-auth');
+const parseBasicAuth = require('basic-auth');
 
 const { DEFAULTS } = require('./config/constants');
 const { getIntEnvOrDefault } = require('./config/env-validator');
@@ -113,6 +114,17 @@ class AppServer {
             challenge: true
         });
 
+        const hasValidBasicCredentials = (req) => {
+            const credentials = parseBasicAuth(req);
+            if (!credentials || !credentials.name || !credentials.pass) {
+                return false;
+            }
+
+            const validUser = basicAuth.safeCompare(credentials.name, this.adminUser);
+            const validPassword = basicAuth.safeCompare(credentials.pass, this.adminPassword);
+            return validUser && validPassword;
+        };
+
         // Determine paths that bypass auth
         this.authBypassPaths = new Set([
             '/health',
@@ -122,32 +134,36 @@ class AppServer {
             '/api/webhook/callback',
             '/api/webhooks/callback',
             '/api/stream',
-            '/api/stream/token',
             '/api/config'
         ]);
 
-        this.app.use((req, res, next) => {
-            const url = req.originalUrl || req.url;
-            const path = url.split('?')[0];
-
-            // Check for exact path match or if it's one of the bypass routes
-            if (this.authBypassPaths.has(path)) {
-                return next();
+        const normalizeRequestPath = (rawPath) => {
+            if (!rawPath || rawPath === '/') {
+                return '/';
             }
+            const noQuery = rawPath.split('?')[0];
+            const normalized = noQuery.replace(/\/+$/, '');
+            return normalized || '/';
+        };
 
-            // Fallback checking for common patterns
-            const isBypass = Array.from(this.authBypassPaths).some(bp =>
-                path === bp || path.endsWith(bp) || (path.startsWith(bp) && (path[bp.length] === '/' || path[bp.length] === undefined))
-            );
+        this.app.use((req, res, next) => {
+            const path = normalizeRequestPath(req.originalUrl || req.url);
 
-            if (isBypass) {
-                this.logger.debug(`Bypassing auth for: ${path}`);
+            // Strict allowlist: bypass only exact public paths
+            if (this.authBypassPaths.has(path)) {
                 return next();
             }
 
             this.logger.debug(`Checking auth for: ${path}`);
 
-            // Apply brute-force protection before authentication check
+            // Allow valid credentials to bypass brute-force limiter lockout.
+            // This prevents "stuck logged out" state when background requests
+            // temporarily exceed AUTH_RATE_LIMIT for the same IP.
+            if (hasValidBasicCredentials(req)) {
+                return basicAuthMiddleware(req, res, next);
+            }
+
+            // Apply brute-force protection before authentication check for invalid/missing credentials
             authLimiter(req, res, (err) => {
                 if (err) return next(err);
                 basicAuthMiddleware(req, res, next);

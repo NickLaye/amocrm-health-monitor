@@ -2,6 +2,7 @@ const rateLimit = require('express-rate-limit');
 const { createLogger } = require('../utils/logger');
 
 const logger = createLogger('AuthLimiter');
+const DEFAULT_AUTH_RATE_LIMIT = 10;
 
 /**
  * Rate limiter middleware for authentication attempts.
@@ -11,7 +12,7 @@ const logger = createLogger('AuthLimiter');
  */
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: parseInt(process.env.AUTH_RATE_LIMIT, 10) || 100000, // Configurable for tests
+    limit: parseInt(process.env.AUTH_RATE_LIMIT, 10) || DEFAULT_AUTH_RATE_LIMIT,
     standardHeaders: 'draft-8', // Draft-8: `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: {

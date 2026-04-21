@@ -6,6 +6,31 @@ const clientRegistry = require('../../config/client-registry');
 
 const router = express.Router();
 
+function toPublicClient(client) {
+    if (!client) return null;
+    return {
+        id: client.id,
+        label: client.label,
+        environment: client.environment,
+        tags: client.tags || [],
+        amo: {
+            domain: client.amo?.domain || '',
+            clientId: client.amo?.clientId || ''
+        },
+        notifications: {
+            mattermost: {
+                channel: client.notifications?.mattermost?.channel || ''
+            },
+            email: {
+                recipients: client.notifications?.email?.recipients || []
+            }
+        },
+        metadata: {
+            notes: client.metadata?.notes || ''
+        }
+    };
+}
+
 // Register new account (client)
 router.post('/', validateAccountPayload, asyncHandler(async (req, res) => {
     const payload = req.body || {};
@@ -21,9 +46,6 @@ router.post('/', validateAccountPayload, asyncHandler(async (req, res) => {
 
     await persistClientConfig(payload);
 
-    // Reload env vars from .env files
-    require('dotenv').config({ override: true });
-
     // Reload client registry
     clientRegistry.load();
 
@@ -38,8 +60,9 @@ router.post('/', validateAccountPayload, asyncHandler(async (req, res) => {
 
     res.status(201).json({
         success: true,
-        data: createdClient
+        data: toPublicClient(createdClient)
     });
 }));
 
 module.exports = router;
+module.exports.toPublicClient = toPublicClient;

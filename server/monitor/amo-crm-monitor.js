@@ -292,12 +292,12 @@ class AmoCRMMonitor {
             const warningKey = `${this.clientId}:${checkType}:warning`;
             const lastWarningNotification = this.lastNotificationTime.get(warningKey) || 0;
             if (Date.now() - lastWarningNotification >= this.notificationDebounceMs) {
-                await this.notifications.sendWarningNotification(checkType, {
-                    clientId: this.clientId,
-                    reason: details.reason,
-                    httpStatus: details.httpStatus,
-                    responseTime
-                });
+            await this.notifications.sendWarningNotification(checkType, {
+                clientId: this.clientId,
+                reason: details.reason,
+                httpStatus: details.httpStatus,
+                responseTime
+            });
                 this.lastNotificationTime.set(warningKey, Date.now());
             } else {
                 logger.debug(`Skipping warning notification for ${checkType} (debounce active)`);
@@ -308,7 +308,7 @@ class AmoCRMMonitor {
                 const warningResolvedKey = `${this.clientId}:${checkType}:warning-resolved`;
                 const lastWarningResolvedNotification = this.lastNotificationTime.get(warningResolvedKey) || 0;
                 if (Date.now() - lastWarningResolvedNotification >= this.notificationDebounceMs) {
-                    await this.notifications.sendWarningResolved(checkType, { clientId: this.clientId, resolvedAt: now });
+                await this.notifications.sendWarningResolved(checkType, { clientId: this.clientId, resolvedAt: now });
                     this.lastNotificationTime.set(warningResolvedKey, Date.now());
                 } else {
                     logger.debug(`Skipping warning resolved notification for ${checkType} (debounce active)`);
@@ -333,7 +333,7 @@ class AmoCRMMonitor {
             if (previousStatus === STATUS.DOWN || previousStatus === STATUS.WARNING) {
                 const openIncident = await this.database.getOpenIncident(checkType, this.clientId);
                 if (openIncident) {
-                    await this.handleUpTransition(checkType);
+            await this.handleUpTransition(checkType);
                 }
             }
         }

@@ -5,7 +5,9 @@ const { CLIENT_ID_PATTERN } = require('../config/constants');
 
 const logger = createLogger('AccountWriter');
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
-const TARGET_ENV_FILES = ['.env.production', '.env.local'];
+const TARGET_ENV_FILES = process.env.ACCOUNT_CONFIG_ENV_FILES
+  ? process.env.ACCOUNT_CONFIG_ENV_FILES.split(',').map((file) => file.trim()).filter(Boolean)
+  : ['.env'];
 
 function sanitizeValue(value) {
   if (value === undefined || value === null) {
@@ -99,11 +101,25 @@ async function persistClientConfig(config) {
   };
   const envEntries = buildEnvPayload(normalized);
   const envFiles = resolveEnvFilePaths();
+  const allClientIds = new Set(
+    (process.env.AMOCRM_CLIENTS || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
 
   await Promise.all(
     envFiles.map(async (filePath) => {
       let content = await readFileSafe(filePath);
       content = updateClientList(content, normalized.clientId);
+      const listMatch = content.match(/^AMOCRM_CLIENTS=(.*)$/m);
+      if (listMatch?.[1]) {
+        listMatch[1]
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .forEach((id) => allClientIds.add(id));
+      }
 
       Object.entries(envEntries).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -116,13 +132,18 @@ async function persistClientConfig(config) {
     })
   );
 
+  process.env.AMOCRM_CLIENTS = Array.from(allClientIds).join(',');
+  Object.entries(envEntries).forEach(([key, value]) => {
+    process.env[key] = sanitizeValue(value);
+  });
+
   return {
     clientId: normalized.clientId,
     files: envFiles,
+    envEntries,
   };
 }
 
 module.exports = {
   persistClientConfig,
 };
-

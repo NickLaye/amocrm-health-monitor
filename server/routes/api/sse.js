@@ -101,7 +101,11 @@ router.get('/stream', authenticateSSE, (req, res) => {
 
     const origin = req.headers.origin;
     if (origin) {
-        const allowedOrigin = resolveSseOrigin(origin);
+        const forwardedProto = req.headers['x-forwarded-proto'];
+        const proto = forwardedProto ? String(forwardedProto).split(',')[0].trim() : req.protocol;
+        const host = req.headers['x-forwarded-host'] || req.get('host');
+        const requestOrigin = host ? `${proto}://${host}` : null;
+        const allowedOrigin = resolveSseOrigin(origin, requestOrigin);
         if (!allowedOrigin) {
             res.status(403).json({ success: false, error: 'Origin not allowed for SSE' });
             return;

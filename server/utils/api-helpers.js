@@ -4,7 +4,7 @@ const aggregator = require('../aggregator');
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
-    : ['*'];
+    : [];
 
 /**
  * Convert query param to number while keeping defaults.
@@ -76,14 +76,19 @@ function resolveClientId(rawValue, { optional = false } = {}) {
  * @param {string} originHeader 
  * @returns {string|null}
  */
-function resolveSseOrigin(originHeader) {
+function resolveSseOrigin(originHeader, requestOrigin = null) {
     if (!originHeader) {
         return null;
     }
-    if (allowedOrigins.includes('*')) {
-        return originHeader;
+    if (allowedOrigins.length > 0) {
+        if (allowedOrigins.includes('*')) {
+            return originHeader;
+        }
+        return allowedOrigins.includes(originHeader) ? originHeader : null;
     }
-    return allowedOrigins.includes(originHeader) ? originHeader : null;
+    // Safe default when ALLOWED_ORIGINS is not configured:
+    // only allow same-origin requests.
+    return requestOrigin && requestOrigin === originHeader ? originHeader : null;
 }
 
 // Stats helper functions

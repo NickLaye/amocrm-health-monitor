@@ -382,7 +382,7 @@ describe('TokenManager', () => {
     });
 
     describe('initializeFromEnv', () => {
-        test('should initialize tokens from initial config', () => {
+        test('should initialize tokens from initial config', async () => {
             const manager = new TokenManager({
                 clientId: 'test-client',
                 tokensFile: testTokensFile,
@@ -392,7 +392,7 @@ describe('TokenManager', () => {
                 }
             });
 
-            const result = manager.initializeFromEnv();
+            const result = await manager.initializeFromEnv();
 
             expect(result).toBe(true);
             expect(manager.currentTokens.access_token).toBe('init-access');
@@ -400,7 +400,7 @@ describe('TokenManager', () => {
             expect(manager.currentTokens.expires_at).toBeDefined();
         });
 
-        test('should return false if no initial tokens', () => {
+        test('should return false if no initial tokens', async () => {
             const manager = new TokenManager({
                 clientId: 'test-client',
                 tokensFile: testTokensFile,
@@ -410,12 +410,12 @@ describe('TokenManager', () => {
                 }
             });
 
-            const result = manager.initializeFromEnv();
+            const result = await manager.initializeFromEnv();
 
             expect(result).toBe(false);
         });
 
-        test('should save tokens to file', () => {
+        test('should save tokens to file', async () => {
             const manager = new TokenManager({
                 clientId: 'test-client',
                 tokensFile: testTokensFile,
@@ -425,7 +425,7 @@ describe('TokenManager', () => {
                 }
             });
 
-            manager.initializeFromEnv();
+            await manager.initializeFromEnv();
 
             expect(fs.existsSync(testTokensFile)).toBe(true);
         });

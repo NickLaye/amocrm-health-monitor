@@ -231,7 +231,7 @@ describe('Edge Case Tests', () => {
 
             const result = await monitor.checkGetAPI();
 
-            expect(result.status).toBe('down');
+            expect(result.status).toBe('warning');
             expect(result.error).toContain('Unauthorized');
         });
 
@@ -244,7 +244,7 @@ describe('Edge Case Tests', () => {
             const result = await monitor.checkGetAPI();
 
             // Should fallback to env token but still fail the request
-            expect(result.status).toBe('down');
+            expect(result.status).toBe('warning');
             expect(result.error).toContain('Token refresh failed');
         });
 
