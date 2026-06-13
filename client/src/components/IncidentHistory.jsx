@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-
-const CHECK_TYPE_LABELS = {
-  GET: 'API (GET)',
-  POST: 'API (POST)',
-  WEB: 'Web Interface',
-  HOOK: 'Webhooks',
-  DP: 'Digital Pipeline'
-};
+import { CHECK_TYPE_LABELS } from '../constants';
 
 const ERROR_TRANSLATIONS = {
   'Request failed with status code 401': 'Ошибка авторизации (401)',

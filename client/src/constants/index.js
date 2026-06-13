@@ -3,18 +3,6 @@
  */
 
 /**
- * Check types for amoCRM monitoring
- * @enum {string}
- */
-export const CHECK_TYPES = {
-  GET: 'GET',
-  POST: 'POST',
-  WEB: 'WEB',
-  HOOK: 'HOOK',
-  DP: 'DP'
-};
-
-/**
  * Human-readable labels for check types
  * @type {Object.<string, string>}
  */
@@ -47,34 +35,5 @@ export const STATUS = {
   WARNING: 'warning',
   DOWN: 'down',
   UNKNOWN: 'unknown'
-};
-
-/**
- * Period options for time range selector (in hours)
- */
-export const PERIOD_OPTIONS = [
-  { value: 1, label: '1 час' },
-  { value: 6, label: '6 часов' },
-  { value: 24, label: '24 часа' },
-  { value: 168, label: '7 дней' }
-];
-
-/**
- * API endpoint paths
- */
-export const API_ENDPOINTS = {
-  STATUS: '/status',
-  STATS: '/stats',
-  HISTORY: '/history',
-  INCIDENTS: '/incidents',
-  SSE: '/events'
-};
-
-/**
- * Update intervals (in milliseconds)
- */
-export const INTERVALS = {
-  STATUS_UPDATE: 60000,    // 1 minute
-  RECONNECT_SSE: 5000      // 5 seconds
 };
 

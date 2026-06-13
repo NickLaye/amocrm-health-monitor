@@ -56,47 +56,6 @@ export function handleApiError(error) {
 }
 
 /**
- * Retries a function with exponential backoff
- * @param {Function} fn - Function to retry
- * @param {number} maxRetries - Maximum number of retries
- * @param {number} delay - Initial delay in milliseconds
- * @returns {Promise} Result of the function
- */
-export async function retryWithBackoff(fn, maxRetries = 3, delay = 1000) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await fn();
-    } catch (error) {
-      if (i === maxRetries - 1) {
-        throw error;
-      }
-      
-      const waitTime = delay * Math.pow(2, i);
-      console.warn(`Retry ${i + 1}/${maxRetries} after ${waitTime}ms...`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-  }
-}
-
-/**
- * Debounces a function call
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
- */
-export function debounce(func, wait = 300) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
-
-/**
  * Checks if response data is valid
  * @param {Object} response - API response
  * @returns {boolean} True if valid
@@ -118,23 +77,4 @@ export function extractResponseData(response) {
     return null;
   }
   return response.data?.data || response.data || null;
-}
-
-/**
- * Creates URL with query parameters
- * @param {string} baseUrl - Base URL
- * @param {Object} params - Query parameters
- * @returns {string} URL with parameters
- */
-export function buildUrlWithParams(baseUrl, params) {
-  if (!params || Object.keys(params).length === 0) {
-    return baseUrl;
-  }
-  
-  const queryString = Object.entries(params)
-    .filter(([_, value]) => value !== null && value !== undefined)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
-  
-  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 }

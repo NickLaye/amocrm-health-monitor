@@ -18,13 +18,13 @@ import { CHECK_TYPE_COLORS, CHECK_TYPE_LABELS } from '../../constants';
  * @param {Array} incidents - Массив инцидентов
  */
 const HealthMonitorDashboardWithData = ({
-  status,
-  stats,
-  lastUpdate,
+  status = null,
+  stats = null,
+  lastUpdate = null,
   incidents = [],
   clients = [],
-  selectedClientId,
-  onClientChange
+  selectedClientId = null,
+  onClientChange = null
 }) => {
   const [historyData, setHistoryData] = useState({});
   const [selectedPeriod, setSelectedPeriod] = useState(24); // По умолчанию 24 часа
@@ -480,16 +480,6 @@ HealthMonitorDashboardWithData.propTypes = {
   })),
   selectedClientId: PropTypes.string,
   onClientChange: PropTypes.func
-};
-
-HealthMonitorDashboardWithData.defaultProps = {
-  status: null,
-  stats: null,
-  lastUpdate: null,
-  incidents: [],
-  clients: [],
-  selectedClientId: null,
-  onClientChange: null
 };
 
 export default HealthMonitorDashboardWithData;

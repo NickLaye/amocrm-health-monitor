@@ -41,7 +41,8 @@ describe('HealthMonitorDashboardWithData', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
-        api.getHistory.mockResolvedValue([]);
+        // Keep the default history request pending to avoid post-assert async state updates in sync tests.
+        api.getHistory.mockImplementation(() => new Promise(() => {}));
     });
 
     const renderComponent = (props = {}) => {
@@ -85,6 +86,7 @@ describe('HealthMonitorDashboardWithData', () => {
     });
 
     it('fetches history data on mount', async () => {
+        api.getHistory.mockResolvedValueOnce([]);
         renderComponent();
         await waitFor(() => {
             expect(api.getHistory).toHaveBeenCalledWith(null, 24, 'client1');

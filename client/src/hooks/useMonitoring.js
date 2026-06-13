@@ -38,6 +38,7 @@ export function useMonitoring() {
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
   const eventSourceRef = useRef(null);
+  const incidentsRefetchTimerRef = useRef(null);
   const clientsLoadedRef = useRef(false);
 
   const fetchData = useCallback(async (clientId) => {
@@ -140,7 +141,14 @@ export function useMonitoring() {
             }));
             setLastUpdate(new Date());
 
-            setTimeout(async () => {
+            // Debounce incident refetch so rapid status updates collapse into
+            // a single request, and keep the timer in a ref so cleanup can
+            // cancel it (prevents dangling timers / setState after unmount).
+            if (incidentsRefetchTimerRef.current) {
+              clearTimeout(incidentsRefetchTimerRef.current);
+            }
+            incidentsRefetchTimerRef.current = setTimeout(async () => {
+              incidentsRefetchTimerRef.current = null;
               try {
                 const incidentsData = await api.getIncidents(20, selectedClientId);
                 if (mounted) {
@@ -170,6 +178,10 @@ export function useMonitoring() {
 
     return () => {
       mounted = false;
+      if (incidentsRefetchTimerRef.current) {
+        clearTimeout(incidentsRefetchTimerRef.current);
+        incidentsRefetchTimerRef.current = null;
+      }
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
@@ -220,58 +232,6 @@ export function useMonitoring() {
     lastUpdate,
     refresh,
     changeClient
-  };
-}
-
-/**
- * Custom hook for fetching history data
- */
-export function useHistoryData(initialPeriod = 24, clientId) {
-  const [historyData, setHistoryData] = useState({});
-  const [period, setPeriod] = useState(initialPeriod);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!clientId) {
-      setHistoryData({});
-      setLoading(false);
-      return;
-    }
-
-    const fetchHistory = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const data = await api.getHistory(null, period, clientId);
-
-        const grouped = {};
-        data.forEach(check => {
-          if (!grouped[check.check_type]) {
-            grouped[check.check_type] = [];
-          }
-          grouped[check.check_type].push(check);
-        });
-
-        setHistoryData(grouped);
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching history:', err);
-        setError(handleApiError(err));
-        setLoading(false);
-      }
-    };
-
-    fetchHistory();
-  }, [period, clientId]);
-
-  return {
-    historyData,
-    period,
-    setPeriod,
-    loading,
-    error
   };
 }
 

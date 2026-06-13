@@ -245,10 +245,10 @@ export default function AddAccountPage() {
               {[
                 { id: 'amoDomain', label: 'Поддомен amoCRM *', placeholder: 'example.amocrm.ru' },
                 { id: 'amoClientId', label: 'Client ID *' },
-                { id: 'amoClientSecret', label: 'Client Secret *' },
+                { id: 'amoClientSecret', label: 'Client Secret *', secret: true },
                 { id: 'amoRedirectUri', label: 'Redirect URI *', placeholder: 'https://...' },
-                { id: 'amoAccessToken', label: 'Access Token *' },
-                { id: 'amoRefreshToken', label: 'Refresh Token *' }
+                { id: 'amoAccessToken', label: 'Access Token *', secret: true },
+                { id: 'amoRefreshToken', label: 'Refresh Token *', secret: true }
               ].map((field) => (
                 <div key={field.id}>
                   <label htmlFor={field.id} className="text-sm font-medium text-slate-300">
@@ -257,7 +257,8 @@ export default function AddAccountPage() {
                   <input
                     id={field.id}
                     name={field.id}
-                    type="text"
+                    type={field.secret ? 'password' : 'text'}
+                    autoComplete="off"
                     placeholder={field.placeholder}
                     value={formValues[field.id]}
                     onChange={handleChange}

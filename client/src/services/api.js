@@ -135,38 +135,114 @@ class ApiService {
     }
   }
 
-  // Subscribe to real-time updates via SSE
+  // Subscribe to real-time updates via SSE.
+  // Returns a controller with a `close()` method. On connection errors it
+  // requests a fresh SSE token and recreates the EventSource using exponential
+  // backoff (1s -> 2s -> ... -> max 30s), so real-time keeps working after the
+  // short-lived token TTL expires. Calling `close()` cancels any pending
+  // reconnect timer and tears down the connection.
   async subscribeToUpdates(clientId, callback) {
     if (!clientId) {
       throw new Error('clientId is required to subscribe to updates');
     }
 
-    const tokenPayload = await this.requestSseToken(clientId);
+    const BASE_BACKOFF_MS = 1000;
+    const MAX_BACKOFF_MS = 30000;
 
-    const params = new URLSearchParams();
-    params.append('clientId', clientId);
-    params.append('token', tokenPayload.token);
+    let eventSource = null;
+    let reconnectTimer = null;
+    let attempt = 0;
+    let closed = false;
 
-    const streamUrl = `${API_BASE_URL}/stream?${params.toString()}`;
-    const eventSource = new EventSource(streamUrl, { withCredentials: true });
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'status_update') {
-          callback(data.checkType, data.data, data.clientId);
-        }
-      } catch (error) {
-        console.error('Error parsing SSE message:', error);
+    const clearReconnectTimer = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      // Auto-reconnect is handled by EventSource
+    const teardownEventSource = () => {
+      if (eventSource) {
+        eventSource.onmessage = null;
+        eventSource.onerror = null;
+        eventSource.close();
+        eventSource = null;
+      }
     };
 
-    return eventSource;
+    const scheduleReconnect = () => {
+      if (closed || reconnectTimer) {
+        return;
+      }
+      const delay = Math.min(BASE_BACKOFF_MS * Math.pow(2, attempt), MAX_BACKOFF_MS);
+      attempt += 1;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connect();
+      }, delay);
+    };
+
+    const connect = async () => {
+      if (closed) {
+        return;
+      }
+      try {
+        const tokenPayload = await this.requestSseToken(clientId);
+        if (closed) {
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.append('clientId', clientId);
+        params.append('token', tokenPayload.token);
+
+        const streamUrl = `${API_BASE_URL}/stream?${params.toString()}`;
+        teardownEventSource();
+        eventSource = new EventSource(streamUrl, { withCredentials: true });
+
+        eventSource.onopen = () => {
+          // Reset backoff once a connection is successfully established.
+          attempt = 0;
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'status_update') {
+              callback(data.checkType, data.data, data.clientId);
+            }
+          } catch (error) {
+            console.error('Error parsing SSE message:', error);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('SSE connection error:', error);
+          if (closed) {
+            return;
+          }
+          // Drop the stale connection and reconnect with a fresh token,
+          // instead of letting the browser silently retry with an expired one.
+          teardownEventSource();
+          scheduleReconnect();
+        };
+      } catch (error) {
+        console.error('SSE connection setup failed:', error);
+        if (!closed) {
+          scheduleReconnect();
+        }
+      }
+    };
+
+    await connect();
+
+    return {
+      close() {
+        closed = true;
+        clearReconnectTimer();
+        teardownEventSource();
+      }
+    };
   }
 
   async createAccount(payload) {
