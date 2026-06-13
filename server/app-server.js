@@ -33,33 +33,22 @@ class AppServer {
     initialize() {
         this.validateAuthCredentials();
         
-        // Health check MUST be registered ABSOLUTELY FIRST, before ANY middleware
-        // Register it directly using app.get() BEFORE setupTrustProxy, security, basic middleware, etc.
-        // This ensures it's processed before ANY other middleware or routes
-        this.app.get('/health', (req, res) => {
-            this.logger.info('Health check endpoint called (ABSOLUTE FIRST handler)', { 
-                url: req.url, 
-                method: req.method,
-                ip: req.ip,
-                originalUrl: req.originalUrl,
-                path: req.path
-            });
-            res.json({ 
-                status: 'ok', 
+        // Liveness probe — registered FIRST (before any middleware, static serving and
+        // the SPA catch-all) so nothing can shadow it. app.all() covers GET/HEAD probes.
+        // No per-request logging: this endpoint is polled frequently by load balancers.
+        this.app.all('/health', (req, res) => {
+            res.json({
+                status: 'ok',
                 timestamp: Date.now(),
                 uptime: process.uptime(),
                 nodeVersion: process.version
             });
         });
-        this.logger.info('Health check endpoint registered at /health (ABSOLUTE FIRST route handler)');
-        
+        this.logger.info('Health check endpoint registered at /health (first route)');
+
         this.setupTrustProxy();
         this.setupSecurityMiddleware();
         this.setupBasicMiddleware();
-        
-        // Also register via setupHealthCheck for redundancy
-        this.setupHealthCheck();
-        
         this.setupAuthMiddleware();
         this.setupRateLimiting();
         this.setupRoutes();
@@ -84,14 +73,23 @@ class AppServer {
     }
 
     setupSecurityMiddleware() {
+        const allowUnsafeInline = process.env.CSP_ALLOW_UNSAFE_INLINE === 'true';
+        const scriptSrc = ["'self'"];
+        const styleSrc = ["'self'"];
+        if (allowUnsafeInline) {
+            scriptSrc.push("'unsafe-inline'");
+            styleSrc.push("'unsafe-inline'");
+        }
+
+        const amoDomain = process.env.AMOCRM_DOMAIN ? `https://${process.env.AMOCRM_DOMAIN}` : null;
         this.app.use(helmet({
             contentSecurityPolicy: {
                 directives: {
                     defaultSrc: ["'self'"],
-                    scriptSrc: ["'self'", "'unsafe-inline'"],
-                    styleSrc: ["'self'", "'unsafe-inline'"],
+                    scriptSrc,
+                    styleSrc,
                     imgSrc: ["'self'", "data:", "https:"],
-                    connectSrc: ["'self'", process.env.AMOCRM_DOMAIN || ""].filter(Boolean),
+                    connectSrc: ["'self'", amoDomain || ""].filter(Boolean),
                     fontSrc: ["'self'", "https:", "data:"],
                     objectSrc: ["'none'"],
                     upgradeInsecureRequests: [],
@@ -102,7 +100,28 @@ class AppServer {
     }
 
     setupBasicMiddleware() {
-        this.app.use(cors());
+        const allowedOrigins = process.env.ALLOWED_ORIGINS
+            ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+            : [];
+        const allowAllOrigins = allowedOrigins.includes('*');
+
+        this.app.use(cors({
+            origin: (origin, callback) => {
+                // Allow requests without Origin header (server-to-server, curl, health probes).
+                if (!origin) {
+                    callback(null, true);
+                    return;
+                }
+                if (allowAllOrigins || allowedOrigins.includes(origin)) {
+                    callback(null, true);
+                    return;
+                }
+                callback(null, false);
+            },
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allowedHeaders: ['Authorization', 'Content-Type', 'X-Requested-With', 'X-SSE-Token', 'X-Webhook-Token', 'X-Client-Id']
+        }));
         this.app.use(compression());
         this.app.use(express.json());
         this.app.use(express.urlencoded({ extended: true }));
@@ -246,7 +265,7 @@ class AppServer {
                     const pathWithoutQuery = req.path || req.url.split('?')[0];
                     const originalPath = req.originalUrl ? req.originalUrl.split('?')[0] : pathWithoutQuery;
                     
-                    // Skip /health endpoint - it's handled by setupHealthCheck (registered FIRST)
+                    // Skip /health endpoint - it's registered first in initialize() (defensive)
                     if (pathWithoutQuery === '/health' || originalPath === '/health' || req.url === '/health') {
                         this.logger.debug('Static middleware skipping /health endpoint');
                         return next();
@@ -258,28 +277,6 @@ class AppServer {
                 this.logger.warn('No client build directory found; skipping static asset hosting.');
             }
         }
-    }
-
-    setupHealthCheck() {
-        // Health check endpoint - MUST be registered FIRST, before ALL middleware and routes
-        // Express processes routes in registration order, so this ensures /health is handled first
-        // Use app.all() to handle all HTTP methods
-        this.app.all('/health', (req, res) => {
-            this.logger.info('Health check endpoint called', { 
-                url: req.url, 
-                method: req.method,
-                ip: req.ip,
-                originalUrl: req.originalUrl,
-                path: req.path
-            });
-            res.json({ 
-                status: 'ok', 
-                timestamp: Date.now(),
-                uptime: process.uptime(),
-                nodeVersion: process.version
-            });
-        });
-        this.logger.info('Health check endpoint registered at /health (FIRST route, before all middleware)');
     }
 
     setupSPACatchAll() {

@@ -11,6 +11,19 @@ const logger = createLogger('API:Webhooks');
 
 // amoCRM webhook callback for Digital Pipeline monitoring
 router.post('/callback', asyncHandler(async (req, res) => {
+    // Optional shared-secret protection. Off by default for backward compatibility
+    // (amoCRM is configured with the bare callback URL). If WEBHOOK_CALLBACK_TOKEN
+    // is set, require it via X-Webhook-Token header or ?token= so forged DP events
+    // can't be injected.
+    const expectedToken = process.env.WEBHOOK_CALLBACK_TOKEN;
+    if (expectedToken) {
+        const token = req.headers['x-webhook-token'] || req.query.token;
+        if (!token || token !== expectedToken) {
+            res.status(401).json({ success: false, error: 'Недействительный webhook token' });
+            return;
+        }
+    }
+
     const { clientId, error } = resolveClientId(req.query.clientId);
     if (error) {
         res.status(400).json({ success: false, error });

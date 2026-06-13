@@ -42,7 +42,7 @@ router.get('/', validateStats, asyncHandler(async (req, res) => {
     if (resolution === RESOLUTIONS.RAW) {
         const stats = {};
         for (const checkType of checkTypes) {
-            const detailedStats = await database.getDetailedStatistics(checkType, hours);
+            const detailedStats = await database.getDetailedStatistics(checkType, hours, clientId);
             if (!detailedStats) {
                 stats[checkType] = buildDefaultStats(hours);
                 continue;

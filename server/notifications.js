@@ -113,25 +113,27 @@ class NotificationService {
     state.pendingError = null;
 
     const notificationConfig = this._resolveNotificationConfig(clientId);
-    const promises = [];
+    const deliveries = [];
 
     if (notificationConfig.mattermost.webhookUrl) {
-      promises.push(this._sendRichMattermostUp(checkType, downtime, clientId, { notificationConfig }));
+      deliveries.push({
+        channel: 'mattermost',
+        promise: this._sendRichMattermostUp(checkType, downtime, clientId, { notificationConfig })
+      });
     }
 
     if (notificationConfig.email.recipients.length > 0) {
-      promises.push(emailNotifier.sendUpNotification(checkType, downtime, {
-        recipients: notificationConfig.email.recipients,
-        clientLabel: notificationConfig.label
-      }));
+      deliveries.push({
+        channel: 'email',
+        promise: emailNotifier.sendUpNotification(checkType, downtime, {
+          recipients: notificationConfig.email.recipients,
+          clientLabel: notificationConfig.label
+        })
+      });
     }
 
-    try {
-      await Promise.allSettled(promises);
-      logger.info(`Sent UP notification for ${checkType} to ${promises.length} channel(s)`);
-    } catch (error) {
-      logger.error('Error sending up notification', error);
-    }
+    const results = await Promise.allSettled(deliveries.map((entry) => entry.promise));
+    this._logDeliveryResults('UP', checkType, clientId, deliveries, results);
   }
 
   async sendWarningNotification(checkType, context = {}) {
@@ -223,59 +225,66 @@ class NotificationService {
     const message = payload.message || payload.errorMessage || 'Внешний инцидент';
 
     if (status === 'down') {
-      const promises = [];
+      const deliveries = [];
       if (notificationConfig.mattermost.webhookUrl) {
-        promises.push(
-          this._sendRichMattermostDown(checkType, message, clientId, {
+        deliveries.push({
+          channel: 'mattermost',
+          promise: this._sendRichMattermostDown(checkType, message, clientId, {
             notificationConfig,
             titleOverride: payload.title || '🚨 Внешний инцидент',
             textOverride: payload.textOverride,
             extraFields: payload.fields
           })
-        );
+        });
       }
       if (notificationConfig.email.recipients.length > 0) {
-        promises.push(
-          emailNotifier.sendDownNotification(checkType, message, {
+        deliveries.push({
+          channel: 'email',
+          promise: emailNotifier.sendDownNotification(checkType, message, {
             recipients: notificationConfig.email.recipients,
             clientLabel: notificationConfig.label,
             subject: payload.emailSubject
           })
-        );
+        });
       }
-      await Promise.allSettled(promises);
+      const results = await Promise.allSettled(deliveries.map((entry) => entry.promise));
+      this._logDeliveryResults('EXTERNAL_DOWN', checkType, clientId, deliveries, results);
       return;
     }
 
     if (status === 'up') {
-      const promises = [];
+      const deliveries = [];
       if (notificationConfig.mattermost.webhookUrl) {
-        promises.push(
-          this._sendRichMattermostUp(checkType, payload.downtimeMs || 0, clientId, {
+        deliveries.push({
+          channel: 'mattermost',
+          promise: this._sendRichMattermostUp(checkType, payload.downtimeMs || 0, clientId, {
             notificationConfig,
             titleOverride: payload.title || '✅ Инцидент закрыт',
             textOverride: payload.textOverride,
             extraFields: payload.fields
           })
-        );
+        });
       }
       if (notificationConfig.email.recipients.length > 0) {
-        promises.push(
-          emailNotifier.sendUpNotification(checkType, payload.downtimeMs || 0, {
+        deliveries.push({
+          channel: 'email',
+          promise: emailNotifier.sendUpNotification(checkType, payload.downtimeMs || 0, {
             recipients: notificationConfig.email.recipients,
             clientLabel: notificationConfig.label,
             subject: payload.emailSubject
           })
-        );
+        });
       }
-      await Promise.allSettled(promises);
+      const results = await Promise.allSettled(deliveries.map((entry) => entry.promise));
+      this._logDeliveryResults('EXTERNAL_UP', checkType, clientId, deliveries, results);
       return;
     }
 
-    const promises = [];
+    const deliveries = [];
     if (notificationConfig.mattermost.webhookUrl) {
-      promises.push(
-        this._sendRichMattermostWarning(checkType, {
+      deliveries.push({
+        channel: 'mattermost',
+        promise: this._sendRichMattermostWarning(checkType, {
           clientId,
           notificationConfig,
           reason: payload.reason || 'external_warning',
@@ -284,11 +293,42 @@ class NotificationService {
           customMessage: payload.textOverride || message,
           extraFields: payload.fields
         })
-      );
+      });
     }
     // Email уведомления для warning статуса не реализованы в emailNotifier
     // Можно добавить в будущем, если потребуется
-    await Promise.allSettled(promises);
+    const results = await Promise.allSettled(deliveries.map((entry) => entry.promise));
+    this._logDeliveryResults('EXTERNAL_WARNING', checkType, clientId, deliveries, results);
+  }
+
+  _logDeliveryResults(eventType, checkType, clientId, deliveries, results) {
+    if (!Array.isArray(deliveries) || deliveries.length === 0) {
+      logger.debug(`No channels configured for ${eventType} notification`, { checkType, clientId });
+      return;
+    }
+
+    const failures = [];
+    results.forEach((result, index) => {
+      if (result.status !== 'rejected') return;
+      const channel = deliveries[index]?.channel || 'unknown';
+      const reason = result.reason || {};
+      failures.push({
+        channel,
+        status: reason?.response?.status || null,
+        message: reason?.response?.data?.message || reason?.message || 'Unknown delivery error'
+      });
+    });
+
+    if (failures.length > 0) {
+      logger.error(`Failed to deliver ${eventType} notification`, {
+        checkType,
+        clientId,
+        failures
+      });
+      return;
+    }
+
+    logger.info(`Sent ${eventType} notification for ${checkType} to ${deliveries.length} channel(s)`, { clientId });
   }
 
   _getServiceLabel(checkType) {
@@ -439,26 +479,28 @@ class NotificationService {
     state.pendingError = null;
 
     const notificationConfig = this._resolveNotificationConfig(clientId);
-    const promises = [];
+    const deliveries = [];
 
     if (notificationConfig.mattermost.webhookUrl) {
-      promises.push(this._sendRichMattermostDown(checkType, errorMessage, clientId, { notificationConfig }));
+      deliveries.push({
+        channel: 'mattermost',
+        promise: this._sendRichMattermostDown(checkType, errorMessage, clientId, { notificationConfig })
+      });
     }
 
     if (notificationConfig.email.recipients.length > 0) {
-      promises.push(emailNotifier.sendDownNotification(checkType, errorMessage, {
-        recipients: notificationConfig.email.recipients,
-        clientLabel: notificationConfig.label
-      }));
+      deliveries.push({
+        channel: 'email',
+        promise: emailNotifier.sendDownNotification(checkType, errorMessage, {
+          recipients: notificationConfig.email.recipients,
+          clientLabel: notificationConfig.label
+        })
+      });
     }
 
-    try {
-      await Promise.allSettled(promises);
-      state.lastDownAlertAt = Date.now();
-      logger.info(`Sent DOWN notification for ${checkType} to ${promises.length} channel(s)`);
-    } catch (error) {
-      logger.error('Error sending down notification', error);
-    }
+    const results = await Promise.allSettled(deliveries.map((entry) => entry.promise));
+    state.lastDownAlertAt = Date.now();
+    this._logDeliveryResults('DOWN', checkType, clientId, deliveries, results);
   }
 
   async _sendLongDowntimeAlert(checkType, { reminder = false, clientId = 'default' } = {}) {
@@ -774,7 +816,7 @@ class NotificationService {
           title: '⚠️ Service is flapping / Unstable',
           text: `amoCRM ${serviceLabel} слишком часто меняет статус.\nУведомления временно приостановлены.`,
           fields: [
-            { short: true, title: 'Порог', value: '3 изменения / 5 мин' },
+            { short: true, title: 'Порог', value: `> ${this.flapThreshold} переходов / ${Math.round(this.flapWindowMs / 60000)} мин` },
             { short: true, title: 'Время (MSK)', value: time },
             ...(clientId && clientId !== 'default'
               ? [{ short: true, title: 'Client', value: clientId }]
@@ -820,4 +862,3 @@ class NotificationService {
 const service = new NotificationService();
 service.NotificationService = NotificationService;
 module.exports = service;
-

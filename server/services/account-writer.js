@@ -20,10 +20,16 @@ function ensureTrailingNewline(content) {
   return content.endsWith('\n') ? content : `${content}\n`;
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function upsertEnvVariable(content, key, value) {
   const sanitized = sanitizeValue(value);
   const line = `${key}=${sanitized}`;
-  const regex = new RegExp(`^${key}=.*$`, 'm');
+  // Escape the key — clientId may legitimately contain `.` (per CLIENT_ID_PATTERN),
+  // which would otherwise act as a regex wildcard and clobber the wrong line.
+  const regex = new RegExp(`^${escapeRegExp(key)}=.*$`, 'm');
 
   if (regex.test(content)) {
     return content.replace(regex, line);

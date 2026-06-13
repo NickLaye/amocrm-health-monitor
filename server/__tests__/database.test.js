@@ -535,152 +535,6 @@ describe('Database', () => {
     });
   });
 
-  describe('Statistics', () => {
-    beforeEach(async () => {
-      // Insert varied test data
-      for (let i = 0; i < 10; i++) {
-        await Database.insertHealthCheck('GET', 'up', 100 + i * 50);
-      }
-      await Database.insertHealthCheck('GET', 'down', 5000, { errorMessage: 'Error' });
-      await Database.insertHealthCheck('GET', 'warning', 1500);
-    });
-
-    describe('getAverageResponseTime', () => {
-      test('should calculate average response time', async () => {
-        const result = await Database.getAverageResponseTime('GET', 24);
-
-        expect(result).toHaveProperty('average');
-        expect(result).toHaveProperty('count');
-        expect(result.average).toBeGreaterThan(0);
-        expect(result.count).toBe(10); // Only 'up' status counts
-      });
-
-      test('should return 0 for no data', async () => {
-        const result = await Database.getAverageResponseTime('HOOK', 24);
-
-        expect(result.average).toBe(0);
-        expect(result.count).toBe(0);
-      });
-    });
-
-    describe('getUptimePercentage', () => {
-      test('should calculate uptime percentage', async () => {
-        const result = await Database.getUptimePercentage('GET', 24);
-
-        expect(result).toHaveProperty('percentage');
-        expect(result).toHaveProperty('total');
-        expect(result).toHaveProperty('up');
-        expect(result).toHaveProperty('down');
-        expect(result.percentage).toBeGreaterThan(0);
-        expect(result.percentage).toBeLessThanOrEqual(100);
-      });
-
-      test('should return 100% for no data', async () => {
-        const result = await Database.getUptimePercentage('HOOK', 24);
-
-        expect(result.percentage).toBe(100);
-        expect(result.total).toBe(0);
-      });
-
-      test('should work without checkType filter', async () => {
-        const result = await Database.getUptimePercentage(null, 24);
-
-        expect(result.total).toBe(12); // All checks
-      });
-    });
-
-    describe('getPercentileResponseTime', () => {
-      test('should calculate P95 response time', async () => {
-        const result = await Database.getPercentileResponseTime('GET', 24, 95);
-
-        expect(result).toHaveProperty('percentile', 95);
-        expect(result).toHaveProperty('value');
-        expect(result.value).toBeGreaterThan(0);
-      });
-
-      test('should return null for no data', async () => {
-        const result = await Database.getPercentileResponseTime('HOOK', 24, 95);
-
-        expect(result.value).toBeNull();
-      });
-    });
-
-    describe('getResponseTimeStats', () => {
-      test('should return min/max/avg/median', async () => {
-        const result = await Database.getResponseTimeStats('GET', 24);
-
-        expect(result).toHaveProperty('min');
-        expect(result).toHaveProperty('max');
-        expect(result).toHaveProperty('avg');
-        expect(result).toHaveProperty('median');
-        expect(result).toHaveProperty('count');
-        expect(result.min).toBeLessThanOrEqual(result.max);
-      });
-    });
-
-    describe('getMTTR', () => {
-      test('should calculate MTTR for resolved incidents', async () => {
-        const startTime = Date.now() - 60000;
-        const id = await Database.insertIncident('GET', startTime, 'Error');
-        await Database.updateIncidentEndTime(id, startTime + 30000);
-
-        const result = await Database.getMTTR('GET', 24);
-
-        expect(result).toHaveProperty('mttr');
-        expect(result).toHaveProperty('incidents');
-        expect(result.mttr).toBe(30000);
-        expect(result.incidents).toBe(1);
-      });
-
-      test('should return null for no resolved incidents', async () => {
-        const result = await Database.getMTTR('HOOK', 24);
-
-        expect(result.mttr).toBeNull();
-        expect(result.incidents).toBe(0);
-      });
-    });
-
-    describe('getMTBF', () => {
-      test('should calculate MTBF for multiple incidents', async () => {
-        const now = Date.now();
-        await Database.insertIncident('GET', now - 60000, 'Error 1');
-        await Database.insertIncident('GET', now - 30000, 'Error 2');
-        await Database.insertIncident('GET', now, 'Error 3');
-
-        const result = await Database.getMTBF('GET', 24);
-
-        expect(result).toHaveProperty('mtbf');
-        expect(result).toHaveProperty('incidents');
-        expect(result.incidents).toBe(3);
-        expect(result.mtbf).toBe(30000); // (60000 - 0) / (3 - 1)
-      });
-
-      test('should return null for less than 2 incidents', async () => {
-        await Database.insertIncident('HOOK', Date.now(), 'Error');
-
-        const result = await Database.getMTBF('HOOK', 24);
-
-        expect(result.mtbf).toBeNull();
-      });
-    });
-
-    describe('getChecksUnderThreshold', () => {
-      test('should count checks under threshold', async () => {
-        const count = await Database.getChecksUnderThreshold('GET', 24, 300);
-
-        expect(count).toBeGreaterThan(0);
-      });
-    });
-
-    describe('getChecksInRange', () => {
-      test('should count checks in response time range', async () => {
-        const count = await Database.getChecksInRange('GET', 24, 100, 500);
-
-        expect(count).toBeGreaterThan(0);
-      });
-    });
-  });
-
   describe('getDetailedStatistics', () => {
     beforeEach(async () => {
       // Insert test health checks
@@ -730,6 +584,26 @@ describe('Database', () => {
 
       expect(stats.apdexScore).toBeGreaterThan(0);
       expect(stats.apdexScore).toBeLessThanOrEqual(1);
+    });
+
+    test('should scope statistics to a single client when clientId is provided', async () => {
+      // beforeEach already inserted 12 GET checks for the default client.
+      for (let i = 0; i < 3; i++) {
+        await Database.insertHealthCheck('GET', 'up', 100, { clientId: 'tenant-a' });
+      }
+      for (let i = 0; i < 5; i++) {
+        await Database.insertHealthCheck('GET', 'up', 100, { clientId: 'tenant-b' });
+      }
+
+      const aStats = await Database.getDetailedStatistics('GET', 24, 'tenant-a');
+      const bStats = await Database.getDetailedStatistics('GET', 24, 'tenant-b');
+      const allStats = await Database.getDetailedStatistics('GET', 24);
+
+      // Each tenant sees only its own checks — no cross-tenant bleed.
+      expect(aStats.totalChecks).toBe(3);
+      expect(bStats.totalChecks).toBe(5);
+      // Without clientId the query is global: 12 default + 3 + 5 = 20.
+      expect(allStats.totalChecks).toBe(20);
     });
   });
 

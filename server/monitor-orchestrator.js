@@ -8,6 +8,9 @@ class MonitorOrchestrator {
     this.logger = createLogger('MonitorOrchestrator');
     this.monitors = new Map();
     this.listeners = new Set();
+    // Track which monitors have already had start() called to avoid double-starting
+    // intervals when a monitor is (re)created lazily after boot.
+    this.started = new Set();
   }
 
   ensureMonitor(clientId) {
@@ -72,12 +75,43 @@ class MonitorOrchestrator {
 
   start() {
     this.logger.info('Запускаю мониторинг для всех клиентов');
-    this.getAllMonitors().forEach((monitor) => monitor.start());
+    this.getAllMonitors().forEach((monitor) => this._ensureStarted(monitor));
+  }
+
+  /**
+   * Start a single monitor exactly once (idempotent).
+   * @param {object} monitor
+   * @private
+   */
+  _ensureStarted(monitor) {
+    if (!monitor) {
+      return;
+    }
+    const id = monitor.clientId;
+    if (this.started.has(id)) {
+      return;
+    }
+    monitor.start();
+    this.started.add(id);
+  }
+
+  /**
+   * Ensure a monitor exists for the given client AND that it is running.
+   * Used when a client is added at runtime (e.g. via POST /api/accounts),
+   * since the boot-time start() only covers clients present at startup.
+   * @param {string} clientId
+   * @returns {object|null} the monitor instance (already started) or null
+   */
+  startClient(clientId) {
+    const monitor = this.ensureMonitor(clientId);
+    this._ensureStarted(monitor);
+    return monitor;
   }
 
   stop() {
     this.monitors.forEach((monitor) => monitor.stop());
     this.monitors.clear();
+    this.started.clear();
   }
 
   addListener(listener) {

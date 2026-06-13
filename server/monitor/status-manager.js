@@ -115,7 +115,7 @@ class StatusManager {
      * @param {string} candidateStatus
      * @returns {string} Final status after escalation
      */
-    applyEscalation(checkType, candidateStatus) {
+    applyEscalation(checkType, candidateStatus, context = {}) {
         const state = this.statusWindows[checkType];
         const previousStatus = this.currentStatus[checkType]?.status || STATUS.UNKNOWN;
         const now = Date.now();
@@ -132,6 +132,13 @@ class StatusManager {
         }
 
         if (candidateStatus === STATUS.WARNING) {
+            // Authentication warnings (401/token) are recoverable and should not escalate to incidents.
+            if (context.reason === 'auth_error') {
+                state.warningEvents = [];
+                state.upRecoveryCount = 0;
+                return STATUS.WARNING;
+            }
+
             state.warningEvents = state.warningEvents.filter(timestamp => now - timestamp <= this.warningEscalationWindowMs);
             state.warningEvents.push(now);
             state.upRecoveryCount = 0;
@@ -177,7 +184,7 @@ class StatusManager {
         errorPayload = null,
         meta = null
     } = {}) {
-        const finalStatus = this.applyEscalation(checkType, baseResult.status);
+        const finalStatus = this.applyEscalation(checkType, baseResult.status, { reason: baseResult.reason });
         let storedErrorMessage = finalStatus === STATUS.UP ? null : (errorMessage || baseResult.message);
         if (!storedErrorMessage && finalStatus === STATUS.WARNING) {
             storedErrorMessage = 'Сервис в состоянии предупреждения';

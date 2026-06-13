@@ -440,6 +440,22 @@ describe('Monitor', () => {
         );
       });
 
+      test('should keep repeated 401 responses as warning (no escalation to down)', async () => {
+        const mockResponse = {
+          status: 401,
+          data: {}
+        };
+
+        mockAxios.patch.mockResolvedValue(mockResponse);
+
+        for (let i = 0; i < 5; i += 1) {
+          const result = await monitor.checkPostAPI();
+          expect(result.status).toBe('warning');
+        }
+
+        expect(notifications.sendDownNotification).not.toHaveBeenCalled();
+      });
+
       test('should handle 5xx responses as down', async () => {
         const mockResponse = {
           status: 500,
@@ -491,4 +507,3 @@ describe('Monitor', () => {
     });
   });
 });
-

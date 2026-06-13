@@ -3,6 +3,10 @@ const { asyncHandler } = require('../../middleware/auth');
 const { validateAccountPayload } = require('../../middleware/validation');
 const { persistClientConfig } = require('../../services/account-writer');
 const clientRegistry = require('../../config/client-registry');
+const monitor = require('../../monitor-orchestrator');
+const { createLogger } = require('../../utils/logger');
+
+const logger = createLogger('API:Accounts');
 
 const router = express.Router();
 
@@ -56,6 +60,15 @@ router.post('/', validateAccountPayload, asyncHandler(async (req, res) => {
             error: 'Не удалось загрузить созданную конфигурацию клиента'
         });
         return;
+    }
+
+    // Begin monitoring the newly added client immediately.
+    // Boot-time monitor.start() only covers clients present at startup, so a
+    // runtime-added account would otherwise stay in `unknown` until restart.
+    try {
+        monitor.startClient(clientId);
+    } catch (err) {
+        logger.error(`Failed to start monitoring for new client ${clientId}`, { error: err.message });
     }
 
     res.status(201).json({

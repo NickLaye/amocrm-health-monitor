@@ -234,41 +234,6 @@ describeWithSockets('API Integration Tests', () => {
   });
 
   describe('GET /api/stats', () => {
-    beforeEach(() => {
-      database.getAverageResponseTime = jest.fn().mockResolvedValue({
-        average: 0.25,
-        count: 100
-      });
-      
-      database.getUptimePercentage = jest.fn().mockResolvedValue({
-        percentage: 99.5,
-        total: 100,
-        up: 99,
-        down: 1
-      });
-      
-      database.getPercentileResponseTime = jest.fn().mockResolvedValue({
-        value: 0.5
-      });
-      
-      database.getResponseTimeStats = jest.fn().mockResolvedValue({
-        min: 0.1,
-        max: 1.0,
-        median: 0.3
-      });
-      
-      database.getMTTR = jest.fn().mockResolvedValue({
-        mttr: 300
-      });
-      
-      database.getMTBF = jest.fn().mockResolvedValue({
-        mtbf: 7200
-      });
-      
-      database.getChecksUnderThreshold = jest.fn().mockResolvedValue(80);
-      database.getChecksInRange = jest.fn().mockResolvedValue(15);
-    });
-
     test('should return statistics for all check types', async () => {
       const response = await request(app)
         .get('/api/stats')

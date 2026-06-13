@@ -95,9 +95,11 @@ describeWithSockets('Health Routes', () => {
             clientRegistry.getClientIds.mockReturnValue(['client1', 'client2']);
             clientRegistry.getClient.mockReturnValue({
                 amo: {
-                    domain: 'test.amocrm.ru',
-                    accessToken: 'token',
-                    refreshToken: 'refresh'
+                    domain: 'test.amocrm.ru'
+                },
+                tokens: {
+                    access_token: 'token',
+                    refresh_token: 'refresh'
                 }
             });
 
@@ -146,7 +148,8 @@ describeWithSockets('Health Routes', () => {
             database.getHealthChecks.mockResolvedValue([]);
             clientRegistry.getClientIds.mockReturnValue(['client1']);
             clientRegistry.getClient.mockReturnValue({
-                amo: { accessToken: 'token', refreshToken: 'refresh' }
+                amo: { domain: 'test.amocrm.ru' },
+                tokens: { access_token: 'token', refresh_token: 'refresh' }
             });
             process.env.MATTERMOST_WEBHOOK_URL = 'https://mattermost.example.com/hooks/xxx';
 
@@ -166,7 +169,8 @@ describeWithSockets('Health Routes', () => {
             database.getHealthChecks.mockRejectedValue(new Error('DB Error'));
             clientRegistry.getClientIds.mockReturnValue(['client1']);
             clientRegistry.getClient.mockReturnValue({
-                amo: { accessToken: 'token', refreshToken: 'refresh' }
+                amo: { domain: 'test.amocrm.ru' },
+                tokens: { access_token: 'token', refresh_token: 'refresh' }
             });
             process.env.MATTERMOST_WEBHOOK_URL = 'https://mattermost.example.com/hooks/xxx';
 

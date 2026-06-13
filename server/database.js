@@ -1,7 +1,7 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { createLogger } = require('./utils/logger');
-const { DEFAULT_CLIENT_ID } = require('./config/constants');
+const { DEFAULT_CLIENT_ID, LATENCY_THRESHOLDS } = require('./config/constants');
 
 const DB_PATH = path.join(__dirname, '..', 'health_checks.db');
 const logger = createLogger('Database');
@@ -565,66 +565,6 @@ class Database {
     });
   }
 
-  // Get average response time for a check type
-  getAverageResponseTime(checkType, hoursBack = 24) {
-    return new Promise((resolve, reject) => {
-      const timeThreshold = Date.now() - (hoursBack * 60 * 60 * 1000);
-      this.db.get(
-        `SELECT AVG(response_time) as avg_time, COUNT(*) as count
-         FROM health_checks 
-         WHERE check_type = ? AND timestamp > ? AND status = 'up'`,
-        [checkType, timeThreshold],
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            // Convert milliseconds to seconds
-            const avgTimeMs = row.avg_time ? parseFloat(row.avg_time) : 0;
-            const avgTimeSec = avgTimeMs / 1000;
-            resolve({
-              average: parseFloat(avgTimeSec.toFixed(3)),
-              count: row.count
-            });
-          }
-        }
-      );
-    });
-  }
-
-  // Calculate uptime percentage
-  getUptimePercentage(checkType = null, hoursBack = 24) {
-    return new Promise((resolve, reject) => {
-      const timeThreshold = Date.now() - (hoursBack * 60 * 60 * 1000);
-      let query = `
-        SELECT 
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as up_count
-        FROM health_checks 
-        WHERE timestamp > ?
-      `;
-      const params = [timeThreshold];
-
-      if (checkType) {
-        query += ' AND check_type = ?';
-        params.push(checkType);
-      }
-
-      this.db.get(query, params, (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          const percentage = row.total > 0 ? (row.up_count / row.total) * 100 : 100;
-          resolve({
-            percentage: parseFloat(percentage.toFixed(2)),
-            total: row.total,
-            up: row.up_count,
-            down: row.total - row.up_count
-          });
-        }
-      });
-    });
-  }
-
   // Insert an incident
   insertIncident(checkType, startTime, details, clientId = DEFAULT_CLIENT_ID) {
     return new Promise((resolve, reject) => {
@@ -750,8 +690,10 @@ class Database {
           'DELETE FROM health_checks WHERE timestamp < ?',
           [thirtyDaysAgo]
         );
+        // Only purge resolved incidents — keep still-open ones regardless of age
+        // so a long-running outage is never silently dropped from the journal.
         this.db.run(
-          'DELETE FROM incidents WHERE start_time < ?',
+          'DELETE FROM incidents WHERE start_time < ? AND end_time IS NOT NULL',
           [thirtyDaysAgo],
           (err) => {
             if (err) {
@@ -767,200 +709,32 @@ class Database {
     });
   }
 
-  // Get percentile response time
-  getPercentileResponseTime(checkType, hours, percentile = 95) {
-    return new Promise((resolve, reject) => {
-      const since = Date.now() - (hours * 60 * 60 * 1000);
-
-      this.db.all(`
-        SELECT response_time
-        FROM health_checks
-        WHERE check_type = ? AND timestamp >= ? AND response_time IS NOT NULL
-        ORDER BY response_time ASC
-      `, [checkType, since], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        if (rows.length === 0) {
-          resolve({ percentile: percentile, value: null });
-          return;
-        }
-
-        const index = Math.ceil((percentile / 100) * rows.length) - 1;
-        resolve({
-          percentile: percentile,
-          value: rows[index].response_time
-        });
-      });
-    });
-  }
-
-  // Get min/max/median response time
-  getResponseTimeStats(checkType, hours) {
-    return new Promise((resolve, reject) => {
-      const since = Date.now() - (hours * 60 * 60 * 1000);
-
-      this.db.all(`
-        SELECT 
-          MIN(response_time) as min,
-          MAX(response_time) as max,
-          AVG(response_time) as avg,
-          COUNT(*) as count
-        FROM health_checks
-        WHERE check_type = ? AND timestamp >= ? AND response_time IS NOT NULL
-      `, [checkType, since], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        // Get median separately
-        this.db.get(`
-          SELECT response_time as median
-          FROM health_checks
-          WHERE check_type = ? AND timestamp >= ? AND response_time IS NOT NULL
-          ORDER BY response_time
-          LIMIT 1 OFFSET (
-            SELECT COUNT(*) / 2 FROM health_checks
-            WHERE check_type = ? AND timestamp >= ? AND response_time IS NOT NULL
-          )
-        `, [checkType, since, checkType, since], (err2, medianRow) => {
-          if (err2) {
-            reject(err2);
-            return;
-          }
-          resolve({
-            min: rows[0]?.min || null,
-            max: rows[0]?.max || null,
-            avg: rows[0]?.avg || null,
-            median: medianRow?.median || null,
-            count: rows[0]?.count || 0
-          });
-        });
-      });
-    });
-  }
-
-  // Get MTTR (Mean Time To Recovery)
-  getMTTR(checkType, hours) {
-    return new Promise((resolve, reject) => {
-      const since = Date.now() - (hours * 60 * 60 * 1000);
-
-      this.db.get(`
-        SELECT AVG(duration) as mttr, COUNT(*) as incidents
-        FROM incidents
-        WHERE check_type = ? AND start_time >= ? AND end_time IS NOT NULL
-      `, [checkType, since], (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve({
-          mttr: row?.mttr || null,
-          incidents: row?.incidents || 0
-        });
-      });
-    });
-  }
-
-  // Get MTBF (Mean Time Between Failures)
-  getMTBF(checkType, hours) {
-    return new Promise((resolve, reject) => {
-      const since = Date.now() - (hours * 60 * 60 * 1000);
-
-      this.db.all(`
-        SELECT COUNT(*) as totalIncidents,
-               MIN(start_time) as firstIncident,
-               MAX(start_time) as lastIncident
-        FROM incidents
-        WHERE check_type = ? AND start_time >= ?
-      `, [checkType, since], (err, rows) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        const totalIncidents = rows[0]?.totalIncidents || 0;
-        if (totalIncidents < 2) {
-          resolve({ mtbf: null, incidents: totalIncidents });
-          return;
-        }
-
-        const timeSpan = rows[0].lastIncident - rows[0].firstIncident;
-        const mtbf = timeSpan / (totalIncidents - 1);
-
-        resolve({
-          mtbf: mtbf,
-          incidents: totalIncidents
-        });
-      });
-    });
-  }
-
-  // Get checks under threshold
-  getChecksUnderThreshold(checkType, hours, threshold) {
-    return new Promise((resolve, reject) => {
-      const since = Date.now() - (hours * 60 * 60 * 1000);
-
-      this.db.get(`
-        SELECT COUNT(*) as count
-        FROM health_checks
-        WHERE check_type = ? AND timestamp >= ? 
-          AND response_time < ? AND status = 'up'
-      `, [checkType, since, threshold], (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(row?.count || 0);
-      });
-    });
-  }
-
-  // Get checks in range
-  getChecksInRange(checkType, hours, min, max) {
-    return new Promise((resolve, reject) => {
-      const since = Date.now() - (hours * 60 * 60 * 1000);
-
-      this.db.get(`
-        SELECT COUNT(*) as count
-        FROM health_checks
-        WHERE check_type = ? AND timestamp >= ? 
-          AND response_time >= ? AND response_time < ? AND status = 'up'
-      `, [checkType, since, min, max], (err, row) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-        resolve(row?.count || 0);
-      });
-    });
-  }
-
   /**
    * Get detailed performance statistics for a check type
    * @param {string} checkType - Check type (GET, POST, WEB, HOOK, DP)
    * @param {number} hoursBack - Hours to look back (default: 24)
    * @returns {Promise<object>} Detailed statistics including MTTR, MTBF, Apdex, etc.
    */
-  getDetailedStatistics(checkType, hoursBack = 24) {
+  getDetailedStatistics(checkType, hoursBack = 24, clientId = null) {
     return new Promise(async (resolve, reject) => {
       try {
         const timeThreshold = Date.now() - (hoursBack * 60 * 60 * 1000);
+        // Optional multi-tenant isolation: when clientId is provided, scope every
+        // sub-query to that client so stats never bleed across tenants.
+        const clientClause = clientId ? ' AND client_id = ?' : '';
+        const clientParams = clientId ? [clientId] : [];
 
         // 1. Basic metrics: uptime, total checks, success rate
         const basicStats = await new Promise((res, rej) => {
           this.db.get(
-            `SELECT 
+            `SELECT
               COUNT(*) as totalChecks,
               SUM(CASE WHEN status = 'up' THEN 1 ELSE 0 END) as successCount,
               SUM(CASE WHEN status = 'down' THEN 1 ELSE 0 END) as failureCount,
               SUM(CASE WHEN status = 'warning' THEN 1 ELSE 0 END) as warningCount
-            FROM health_checks 
-            WHERE check_type = ? AND timestamp > ?`,
-            [checkType, timeThreshold],
+            FROM health_checks
+            WHERE check_type = ? AND timestamp > ?${clientClause}`,
+            [checkType, timeThreshold, ...clientParams],
             (err, row) => err ? rej(err) : res(row)
           );
         });
@@ -968,13 +742,13 @@ class Database {
         // 2. Response time statistics
         const responseStats = await new Promise((res, rej) => {
           this.db.get(
-            `SELECT 
+            `SELECT
               AVG(response_time) as avgResponseTime,
               MIN(response_time) as minResponseTime,
               MAX(response_time) as maxResponseTime
-            FROM health_checks 
-            WHERE check_type = ? AND timestamp > ? AND response_time IS NOT NULL`,
-            [checkType, timeThreshold],
+            FROM health_checks
+            WHERE check_type = ? AND timestamp > ?${clientClause} AND response_time IS NOT NULL`,
+            [checkType, timeThreshold, ...clientParams],
             (err, row) => err ? rej(err) : res(row)
           );
         });
@@ -982,32 +756,38 @@ class Database {
         // 3. Percentile response times (P95, P99)
         const allResponses = await new Promise((res, rej) => {
           this.db.all(
-            `SELECT response_time 
-            FROM health_checks 
-            WHERE check_type = ? AND timestamp > ? AND response_time IS NOT NULL
+            `SELECT response_time
+            FROM health_checks
+            WHERE check_type = ? AND timestamp > ?${clientClause} AND response_time IS NOT NULL
             ORDER BY response_time ASC`,
-            [checkType, timeThreshold],
+            [checkType, timeThreshold, ...clientParams],
             (err, rows) => err ? rej(err) : res(rows)
           );
         });
 
-        const p95 = allResponses.length > 0
-          ? allResponses[Math.floor(allResponses.length * 0.95)]?.response_time || 0
-          : 0;
-        const p99 = allResponses.length > 0
-          ? allResponses[Math.floor(allResponses.length * 0.99)]?.response_time || 0
-          : 0;
+        // Percentile index — same ceil-based, clamped formula as the aggregator,
+        // so raw and aggregated stats report consistent p95/p99.
+        const percentileAt = (pct) => {
+          if (allResponses.length === 0) return 0;
+          const idx = Math.min(
+            allResponses.length - 1,
+            Math.max(0, Math.ceil((pct / 100) * allResponses.length) - 1)
+          );
+          return allResponses[idx]?.response_time || 0;
+        };
+        const p95 = percentileAt(95);
+        const p99 = percentileAt(99);
 
         // 4. Incident statistics
         const incidentStats = await new Promise((res, rej) => {
           this.db.get(
-            `SELECT 
+            `SELECT
               COUNT(*) as incidentCount,
               MAX(start_time) as lastIncidentTime,
               AVG(CASE WHEN end_time IS NOT NULL THEN (end_time - start_time) ELSE NULL END) as avgRecoveryTime
-            FROM incidents 
-            WHERE check_type = ? AND start_time > ?`,
-            [checkType, timeThreshold],
+            FROM incidents
+            WHERE check_type = ? AND start_time > ?${clientClause}`,
+            [checkType, timeThreshold, ...clientParams],
             (err, row) => err ? rej(err) : res(row)
           );
         });
@@ -1029,17 +809,22 @@ class Database {
           ? parseFloat((totalUptime / incidentCount).toFixed(2))
           : hoursBack;
 
-        // 7. Calculate Apdex Score (T=500ms, 4T=2000ms)
+        // 7. Calculate Apdex Score.
+        // Tie T to this check type's warning latency threshold (4T = 4 × T), so
+        // Apdex agrees with the system's own definition of "healthy" instead of a
+        // hardcoded 500ms/2000ms that conflicted with the latency thresholds.
+        const apdexT = (LATENCY_THRESHOLDS[checkType] && LATENCY_THRESHOLDS[checkType].warningMs) || 2000;
+        const apdexFourT = apdexT * 4;
         const apdexData = await new Promise((res, rej) => {
           this.db.get(
-            `SELECT 
-              SUM(CASE WHEN response_time <= 500 THEN 1 ELSE 0 END) as satisfied,
-              SUM(CASE WHEN response_time > 500 AND response_time <= 2000 THEN 1 ELSE 0 END) as tolerating,
-              SUM(CASE WHEN response_time > 2000 THEN 1 ELSE 0 END) as frustrated,
+            `SELECT
+              SUM(CASE WHEN response_time <= ? THEN 1 ELSE 0 END) as satisfied,
+              SUM(CASE WHEN response_time > ? AND response_time <= ? THEN 1 ELSE 0 END) as tolerating,
+              SUM(CASE WHEN response_time > ? THEN 1 ELSE 0 END) as frustrated,
               COUNT(*) as total
-            FROM health_checks 
-            WHERE check_type = ? AND timestamp > ? AND response_time IS NOT NULL AND status = 'up'`,
-            [checkType, timeThreshold],
+            FROM health_checks
+            WHERE check_type = ? AND timestamp > ?${clientClause} AND response_time IS NOT NULL AND status = 'up'`,
+            [apdexT, apdexT, apdexFourT, apdexFourT, checkType, timeThreshold, ...clientParams],
             (err, row) => err ? rej(err) : res(row)
           );
         });

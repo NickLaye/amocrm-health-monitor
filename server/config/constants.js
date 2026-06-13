@@ -41,14 +41,38 @@ const STATUS = {
 /**
  * Latency thresholds per check type (milliseconds).
  * warningMs — деградация, downMs — критическое превышение.
+ *
+ * Defaults are differentiated by check kind: lightweight reads (GET/HOOK) are
+ * tightest, writes/UI a bit looser, and DP much higher because it measures a
+ * full round-trip including webhook delivery. Each bound is overridable per
+ * type via env: LATENCY_GET_WARNING_MS, LATENCY_GET_DOWN_MS, … (POST/WEB/HOOK/DP).
  */
-const LATENCY_THRESHOLDS = {
-  GET: { warningMs: 10000, downMs: 15000 },
-  POST: { warningMs: 10000, downMs: 15000 },
-  WEB: { warningMs: 10000, downMs: 15000 },
-  HOOK: { warningMs: 10000, downMs: 15000 },
-  DP: { warningMs: 10000, downMs: 15000 }
+const DEFAULT_LATENCY_THRESHOLDS = {
+  GET: { warningMs: 2000, downMs: 5000 },
+  POST: { warningMs: 3000, downMs: 7000 },
+  WEB: { warningMs: 3000, downMs: 8000 },
+  HOOK: { warningMs: 2000, downMs: 5000 },
+  DP: { warningMs: 30000, downMs: 50000 }
 };
+
+const resolveLatencyBound = (type, bound, fallback) => {
+  const raw = process.env[`LATENCY_${type}_${bound}_MS`];
+  if (!raw) {
+    return fallback;
+  }
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const LATENCY_THRESHOLDS = Object.fromEntries(
+  Object.entries(DEFAULT_LATENCY_THRESHOLDS).map(([type, def]) => [
+    type,
+    {
+      warningMs: resolveLatencyBound(type, 'WARNING', def.warningMs),
+      downMs: resolveLatencyBound(type, 'DOWN', def.downMs)
+    }
+  ])
+);
 
 /**
  * Supported aggregate resolutions

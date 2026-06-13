@@ -384,6 +384,11 @@ class AmoCRMMonitor {
                 checkType, incidentStart, errorMessage || 'Service is down', this.clientId
             );
 
+            // Record the incident metric whenever an incident row is created,
+            // independently of notification debounce — otherwise the Prometheus
+            // counter drifts from the DB when a DOWN alert is suppressed.
+            this.metrics.recordIncident(checkType, this.clientId);
+
             // Debounced Notification
             const downKey = `${this.clientId}:${checkType}:down`;
             const lastNotification = this.lastNotificationTime.get(downKey) || 0;
@@ -392,7 +397,6 @@ class AmoCRMMonitor {
                     downSince: incidentStart, clientId: this.clientId
                 });
                 this.lastNotificationTime.set(downKey, Date.now());
-                this.metrics.recordIncident(checkType, this.clientId);
             }
             logger.info(`Incident #${incidentId} created for ${checkType}`);
         } catch (err) {

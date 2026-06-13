@@ -84,8 +84,8 @@ router.get('/amo', asyncHandler(async (req, res) => {
         const check = {
             clientId,
             domain: clientConfig?.amo?.domain || 'unknown',
-            hasAccessToken: !!clientConfig?.amo?.accessToken,
-            hasRefreshToken: !!clientConfig?.amo?.refreshToken,
+            hasAccessToken: !!clientConfig?.tokens?.access_token,
+            hasRefreshToken: !!clientConfig?.tokens?.refresh_token,
             status: 'unknown'
         };
 
@@ -174,7 +174,7 @@ router.get('/all', asyncHandler(async (req, res) => {
     const clientIds = clientRegistry.getClientIds();
     const configuredClients = clientIds.filter(id => {
         const client = clientRegistry.getClient(id);
-        return client?.amo?.accessToken && client?.amo?.refreshToken;
+        return client?.tokens?.access_token && client?.tokens?.refresh_token;
     });
     if (configuredClients.length > 0) {
         components.amoCRM = {
