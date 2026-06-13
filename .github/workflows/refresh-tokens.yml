@@ -10,13 +10,16 @@ jobs:
 
     steps:
       - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          printf '%s' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts
 
-      - name: Exchange auth code or push long-term token
+      - name: Build and push fresh tokens
         env:
           SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
@@ -26,8 +29,9 @@ jobs:
           CLIENT_ID: ${{ secrets.AMOCRM_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.AMOCRM_CLIENT_SECRET }}
         run: |
-          # If we have a refresh_token, try to get fresh pair from amoCRM
-          if [ -n "$REFRESH_TOKEN" ]; then
+          set -euo pipefail
+          TOKENS_JSON=""
+          if [ -n "${REFRESH_TOKEN:-}" ]; then
             echo "Attempting token refresh via amoCRM API..."
             RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
               "https://skillssales.amocrm.ru/oauth2/access_token" \
@@ -37,59 +41,28 @@ jobs:
               --data-urlencode "grant_type=refresh_token" \
               --data-urlencode "refresh_token=${REFRESH_TOKEN}" \
               --data-urlencode "redirect_uri=https://www.simple.com")
-            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-            BODY=$(echo "$RESPONSE" | head -1)
-
+            HTTP_CODE=$(printf '%s' "$RESPONSE" | tail -n1)
+            BODY=$(printf '%s' "$RESPONSE" | sed '$d')
             if [ "$HTTP_CODE" = "200" ]; then
-              echo "✅ Got fresh tokens from amoCRM"
+              echo "Got fresh tokens from amoCRM"
               NOW=$(date +%s)
-              EXPIRES_IN=$(echo "$BODY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('expires_in',86400))")
+              EXPIRES_IN=$(printf '%s' "$BODY" | jq -r '.expires_in // 86400')
               EXPIRES_AT=$((NOW + EXPIRES_IN))
-              TOKENS_JSON=$(echo "$BODY" | python3 -c "
-import json,sys,os
-d=json.load(sys.stdin)
-d['expires_at'] = int(os.environ['EXPIRES_AT'])
-print(json.dumps(d, indent=2))
-" EXPIRES_AT=$EXPIRES_AT)
+              TOKENS_JSON=$(printf '%s' "$BODY" | jq --argjson ea "$EXPIRES_AT" '. + {expires_at: $ea}')
             else
-              echo "⚠️ Refresh failed (${HTTP_CODE}), using long-term token from secrets"
-              TOKENS_JSON=$(python3 -c "
-import json, os, time
-print(json.dumps({
-  'token_type': 'Bearer',
-  'expires_in': 86400,
-  'access_token': os.environ['ACCESS_TOKEN'],
-  'refresh_token': os.environ.get('REFRESH_TOKEN', ''),
-  'expires_at': 1861833600
-}, indent=2))
-")
+              echo "Refresh failed (${HTTP_CODE}), using long-term token from secrets"
+              TOKENS_JSON=$(jq -n --arg at "${ACCESS_TOKEN:-}" --arg rt "${REFRESH_TOKEN:-}" \
+                '{token_type:"Bearer", expires_in:86400, access_token:$at, refresh_token:$rt, expires_at:1861833600}')
             fi
           else
             echo "No refresh token — using long-term access token"
-            TOKENS_JSON=$(python3 -c "
-import json, os
-print(json.dumps({
-  'token_type': 'Bearer',
-  'expires_in': 86400,
-  'access_token': os.environ['ACCESS_TOKEN'],
-  'refresh_token': '',
-  'expires_at': 1861833600
-}, indent=2))
-")
+            TOKENS_JSON=$(jq -n --arg at "${ACCESS_TOKEN:-}" \
+              '{token_type:"Bearer", expires_in:86400, access_token:$at, refresh_token:"", expires_at:1861833600}')
           fi
 
           echo "Writing tokens to server..."
-          ssh ${SERVER_USER}@${SERVER_HOST} bash << ENDSSH
-            set -e
-            DATA_DIR="${DEPLOY_PATH}/current/data"
-            mkdir -p "\$DATA_DIR"
-            [ -f "\$DATA_DIR/default.tokens.json" ] && cp "\$DATA_DIR/default.tokens.json" "\$DATA_DIR/default.tokens.json.bak"
-            cat > "\$DATA_DIR/default.tokens.json" << 'JSONEOF'
-${TOKENS_JSON}
-JSONEOF
-            echo "Tokens written. Reloading PM2..."
-            pm2 reload amocrm-health-monitor || pm2 restart amocrm-health-monitor
-ENDSSH
+          TOKENS_B64=$(printf '%s' "$TOKENS_JSON" | base64 | tr -d '\n')
+          ssh "${SERVER_USER}@${SERVER_HOST}" "set -e; DATA_DIR='${DEPLOY_PATH}/current/data'; mkdir -p \"\$DATA_DIR\"; { [ -f \"\$DATA_DIR/default.tokens.json\" ] && cp \"\$DATA_DIR/default.tokens.json\" \"\$DATA_DIR/default.tokens.json.bak\"; } || true; printf '%s' '${TOKENS_B64}' | base64 -d > \"\$DATA_DIR/default.tokens.json\"; echo 'Tokens written. Reloading PM2...'; pm2 reload amocrm-health-monitor || pm2 restart amocrm-health-monitor"
 
       - name: Update .env on server with new integration credentials
         env:
@@ -99,15 +72,9 @@ ENDSSH
           CLIENT_ID: ${{ secrets.AMOCRM_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.AMOCRM_CLIENT_SECRET }}
         run: |
-          if [ -n "$CLIENT_ID" ]; then
-            ssh ${SERVER_USER}@${SERVER_HOST} bash << ENDSSH
-              ENV_FILE="${DEPLOY_PATH}/.env"
-              if [ -f "\$ENV_FILE" ]; then
-                sed -i "s|^AMOCRM_CLIENT_ID=.*|AMOCRM_CLIENT_ID=${CLIENT_ID}|" "\$ENV_FILE"
-                sed -i "s|^AMOCRM_CLIENT_SECRET=.*|AMOCRM_CLIENT_SECRET=${CLIENT_SECRET}|" "\$ENV_FILE"
-                echo "✅ Updated CLIENT_ID and CLIENT_SECRET in .env"
-              fi
-ENDSSH
+          set -euo pipefail
+          if [ -n "${CLIENT_ID:-}" ]; then
+            ssh "${SERVER_USER}@${SERVER_HOST}" "ENV_FILE='${DEPLOY_PATH}/.env'; if [ -f \"\$ENV_FILE\" ]; then sed -i \"s|^AMOCRM_CLIENT_ID=.*|AMOCRM_CLIENT_ID=${CLIENT_ID}|\" \"\$ENV_FILE\"; sed -i \"s|^AMOCRM_CLIENT_SECRET=.*|AMOCRM_CLIENT_SECRET=${CLIENT_SECRET}|\" \"\$ENV_FILE\"; echo 'Updated CLIENT_ID and CLIENT_SECRET in .env'; fi"
           fi
 
       - name: Verify health
@@ -115,6 +82,10 @@ ENDSSH
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
           sleep 12
-          STATUS=$(curl -sk https://${SERVER_HOST}/health | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('status','?'))" 2>/dev/null || echo "failed")
+          STATUS=$(curl -sk "https://${SERVER_HOST}/health" | jq -r '.status // "?"' 2>/dev/null || echo "failed")
           echo "Health: $STATUS"
-          [ "$STATUS" = "ok" ] && echo "✅ Server healthy" || echo "⚠️ Status: $STATUS"
+          if [ "$STATUS" = "ok" ]; then
+            echo "Server healthy"
+          else
+            echo "Status: $STATUS"
+          fi
