@@ -1,0 +1,46 @@
+name: Migrate domain (cert + env) [temporary]
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: Issue TLS cert and prep .env for amohealth.nicklayecrm.ru
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Issue cert and update .env
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh "${SERVER_USER}@${SERVER_HOST}" "
+            set -e
+            D=amohealth.nicklayecrm.ru
+            echo '===== resolve on server ====='
+            getent hosts \$D || { echo 'NOT RESOLVING on server yet — aborting (no LE attempt used).'; exit 9; }
+            echo '===== certbot version ====='
+            certbot --version 2>&1 || true
+            echo '===== issue cert via nginx plugin ====='
+            certbot certonly --nginx -d \$D --non-interactive --agree-tos -m rackcheev@gmail.com --keep-until-expiring 2>&1 | tail -30
+            echo '===== cert dir ====='
+            ls -la /etc/letsencrypt/live/\$D/ 2>&1 || { echo 'CERT NOT CREATED'; exit 10; }
+            echo '===== update root .env (ALLOWED_ORIGINS, DASHBOARD_URL) ====='
+            ENV='${DEPLOY_PATH}/.env'
+            cp \"\$ENV\" \"\$ENV.bak.\$(date +%s)\" 2>/dev/null || true
+            if grep -q '^ALLOWED_ORIGINS=' \"\$ENV\"; then sed -i 's|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://amohealth.nicklayecrm.ru,https://amohealth.duckdns.org|' \"\$ENV\"; else echo 'ALLOWED_ORIGINS=https://amohealth.nicklayecrm.ru,https://amohealth.duckdns.org' >> \"\$ENV\"; fi
+            if grep -q '^DASHBOARD_URL=' \"\$ENV\"; then sed -i 's|^DASHBOARD_URL=.*|DASHBOARD_URL=https://amohealth.nicklayecrm.ru|' \"\$ENV\"; else echo 'DASHBOARD_URL=https://amohealth.nicklayecrm.ru' >> \"\$ENV\"; fi
+            echo '===== resulting values ====='
+            grep -E '^(ALLOWED_ORIGINS|DASHBOARD_URL)=' \"\$ENV\"
+            echo '===== DONE ====='
+          "
