@@ -376,11 +376,13 @@ jobs:
       - name: Health check
         if: steps.check_secrets.outputs.secrets_configured == 'true'
         run: |
-          echo "Waiting 30 seconds for application to fully start..."
-          sleep 30
-          
+          echo "Waiting 45 seconds for application to fully start..."
+          sleep 45
+
           echo "Checking health endpoint..."
-          max_attempts=6
+          # Generous window (~45s + 15x10s ≈ 3.5 min): tolerate a slow restart /
+          # nginx reload, but still fail a genuinely dead app and trigger rollback.
+          max_attempts=15
           attempt=1
           while [ $attempt -le $max_attempts ]; do
             echo "Attempt $attempt/$max_attempts..."
