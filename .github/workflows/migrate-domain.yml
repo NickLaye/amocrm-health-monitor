@@ -42,5 +42,9 @@ jobs:
             if grep -q '^DASHBOARD_URL=' \"\$ENV\"; then sed -i 's|^DASHBOARD_URL=.*|DASHBOARD_URL=https://amohealth.nicklayecrm.ru|' \"\$ENV\"; else echo 'DASHBOARD_URL=https://amohealth.nicklayecrm.ru' >> \"\$ENV\"; fi
             echo '===== resulting values ====='
             grep -E '^(ALLOWED_ORIGINS|DASHBOARD_URL)=' \"\$ENV\"
+            echo '===== verify public URL from server ====='
+            curl -sS -m 10 -o /dev/null -w 'public /health -> HTTP %{http_code}\n' https://\$D/health || echo 'public /health curl failed'
+            curl -sS -m 10 -X POST -H 'Content-Type: application/json' -d '{}' -o /dev/null -w 'public POST /api/webhooks/callback -> HTTP %{http_code}\n' https://\$D/api/webhooks/callback || echo 'webhook curl failed'
+            curl -sS -m 10 -o /dev/null -w 'public GET / (dashboard) -> HTTP %{http_code}\n' https://\$D/ || echo 'dashboard curl failed'
             echo '===== DONE ====='
           "
