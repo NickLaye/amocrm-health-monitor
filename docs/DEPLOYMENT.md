@@ -37,9 +37,12 @@ AMOCRM_DOMAIN=yourcompany.amocrm.ru
 AMOCRM_CLIENT_ID=xxx
 AMOCRM_CLIENT_SECRET=xxx
 AMOCRM_ACCESS_TOKEN=xxx
-AMOCRM_REFRESH_TOKEN=xxx
+# REFRESH_TOKEN опционален: нужен хотя бы ОДИН из ACCESS/REFRESH.
+# В long-term режиме оставьте пустым — срок жизни берётся из exp самого access-токена.
+AMOCRM_REFRESH_TOKEN=
 
-# Тестовые сущности для POST проверок
+# Тестовые сущности для POST проверки (опционально — без них POST-проверка
+# показывает "not configured" и не алертит)
 AMOCRM_TEST_DEAL_ID=12345678
 AMOCRM_TEST_FIELD_ID=1234567
 
@@ -61,7 +64,38 @@ ADMIN_PASSWORD=secure-password
 # Multi-tenant
 AMOCRM_CLIENTS=client1,client2
 AMOCRM_client1_DOMAIN=...
+
+# Персистентность (если деплой заменяет каталог релиза, напр. current/)
+# Укажите пути ВНЕ сменяемого каталога, иначе деплой стирает БД и токены.
+DB_PATH=/root/amocrm-monitor/health_checks.db
+TOKENS_DIR=/root/amocrm-monitor/data
+
+# Пороги латентности по типам (мс). Дефолты: GET/HOOK 2000/5000, POST 3000/7000,
+# WEB 3000/8000, DP 30000/50000. Apdex привязан к warning-порогу.
+LATENCY_GET_WARNING_MS=2000
+LATENCY_GET_DOWN_MS=5000
+# ... аналогично LATENCY_POST_*, LATENCY_WEB_*, LATENCY_HOOK_*, LATENCY_DP_*
+
+# Опциональный токен для amoCRM DP-callback /api/webhook/callback
+WEBHOOK_CALLBACK_TOKEN=
 ```
+
+## Особенности продакшн-деплоя (этот проект)
+
+- **Деплой** идёт через GitHub Actions (`.github/workflows/deploy.yml`) на push в `main`:
+  сборка фронта → артефакт → SSH на сервер → `pm2 restart`. Health-check после деплоя
+  проверяет приложение **локально на сервере** (`127.0.0.1:3001/health`), а не по публичному
+  URL (публичный путь во время перезагрузки nginx даёт ложные 502). Если приложение не
+  поднялось — деплой падает (красный) и срабатывает `Rollback on failure`.
+- **Персистентность обязательна.** Деплой заменяет каталог `current/`, поэтому БД и файл
+  токенов должны лежать ВНЕ него — задайте `DB_PATH` и `TOKENS_DIR` в `.env`. Без этого
+  каждый деплой стирает историю инцидентов и токены (монитор «слепнет» на amoCRM).
+- **Домен для вебхука amoCRM** должен быть НАСТОЯЩИМ (с валидным TLS). amoCRM отклоняет
+  динамические DNS (`*.duckdns.org` и т.п.) как «небезопасные/внутренние» — нужен обычный
+  домен или поддомен.
+- **Режим токена.** Поддерживается долгоживущий `AMOCRM_ACCESS_TOKEN` без refresh-токена.
+  Следите за его сроком (`exp`) — без refresh-токена монитор не сможет обновить его сам;
+  при истечении начнут лететь ложные `auth_error` алерты (см. TROUBLESHOOTING).
 
 ## Docker
 

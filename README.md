@@ -49,7 +49,8 @@ cp .env.example .env
 
 | Переменная | Назначение |
 | --- | --- |
-| `AMOCRM_DOMAIN`, `AMOCRM_CLIENT_ID`, `AMOCRM_CLIENT_SECRET`, `AMOCRM_REDIRECT_URI`, `AMOCRM_REFRESH_TOKEN` | OAuth-доступ к вашему amoCRM аккаунту (legacy режим) |
+| `AMOCRM_DOMAIN`, `AMOCRM_CLIENT_ID`, `AMOCRM_CLIENT_SECRET`, `AMOCRM_REDIRECT_URI` | OAuth-доступ к вашему amoCRM аккаунту (legacy режим). Плюс **хотя бы один** из `AMOCRM_ACCESS_TOKEN` / `AMOCRM_REFRESH_TOKEN` (long-term режим — refresh можно не указывать) |
+| `DB_PATH`, `TOKENS_DIR` | Пути к БД и файлу токенов. На сервере с деплоем, заменяющим каталог релиза, задайте их **вне** этого каталога — иначе деплой стирает историю и токены |
 | `AMOCRM_CLIENTS`, `CLIENT_<slug>_*` | Multi-tenant конфигурация: перечислите slug'и (например `skillssales`) и задайте для каждого `CLIENT_slug_DOMAIN`, `CLIENT_slug_CLIENT_ID/SECRET`, `CLIENT_slug_REFRESH_TOKEN`, DP тайминги |
 | `CLIENT_<slug>_MATTERMOST_WEBHOOK_URL`, `CLIENT_<slug>_MATTERMOST_CHANNEL` | Per-client настройки Mattermost (приоритет над глобальными) |
 | `CLIENT_<slug>_EMAILS` | Per-client email-получатели (через запятую) |
