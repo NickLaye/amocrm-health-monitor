@@ -16,7 +16,6 @@ const REQUIRED_ENV_VARS = [
   'AMOCRM_CLIENT_ID',
   'AMOCRM_CLIENT_SECRET',
   'AMOCRM_REDIRECT_URI',
-  'AMOCRM_REFRESH_TOKEN',
   'MATTERMOST_WEBHOOK_URL'
 ];
 
@@ -42,6 +41,17 @@ function validateEnv() {
     throw new Error(
       `Missing required environment variables: ${missing.join(', ')}\n` +
       'Please check your .env file.'
+    );
+  }
+
+  // Need at least one credential to obtain an access token: a long-term access
+  // token OR a refresh token. Long-term-token mode leaves AMOCRM_REFRESH_TOKEN
+  // empty (tokens live in data/<client>.tokens.json), so neither is hard-required
+  // on its own — but having neither means the monitor can never authenticate.
+  if (!process.env.AMOCRM_ACCESS_TOKEN && !process.env.AMOCRM_REFRESH_TOKEN) {
+    throw new Error(
+      'Either AMOCRM_ACCESS_TOKEN or AMOCRM_REFRESH_TOKEN must be set ' +
+      '(long-term access token or refresh token).'
     );
   }
 
