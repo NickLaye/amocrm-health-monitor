@@ -375,7 +375,6 @@ jobs:
 
       - name: Health check
         if: steps.check_secrets.outputs.secrets_configured == 'true'
-        continue-on-error: true
         run: |
           echo "Waiting 30 seconds for application to fully start..."
           sleep 30
@@ -417,7 +416,7 @@ jobs:
             attempt=$((attempt + 1))
           done
           
-          echo "⚠️ Health check failed after $max_attempts attempts"
+          echo "❌ Health check FAILED after $max_attempts attempts — deployment is unhealthy."
           echo "Please check manually: https://${{ secrets.SERVER_HOST }}/health"
           echo "Last response code: $response_code"
           if [ -n "$response_body" ]; then
@@ -425,7 +424,9 @@ jobs:
             echo "$response_body" | head -c 500
             echo ""
           fi
-          exit 0
+          # Fail the job so the deploy goes RED and the "Rollback on failure" step fires.
+          # (Previously this exited 0 with continue-on-error, hiding a dead app behind a green check.)
+          exit 1
 
       - name: Rollback on failure
         if: failure() && steps.check_secrets.outputs.secrets_configured == 'true'
