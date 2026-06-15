@@ -1,0 +1,49 @@
+name: Cleanup server (origins + dead cert) [temporary]
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    name: Tidy ALLOWED_ORIGINS and remove duckdns cert
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Clean up
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh "${SERVER_USER}@${SERVER_HOST}" "
+            set -e
+            echo '===== ALLOWED_ORIGINS -> nicklayecrm only ====='
+            for f in '${DEPLOY_PATH}/.env' '${DEPLOY_PATH}/current/.env'; do
+              [ -f \"\$f\" ] || continue
+              sed -i 's|^ALLOWED_ORIGINS=.*|ALLOWED_ORIGINS=https://amohealth.nicklayecrm.ru|' \"\$f\"
+            done
+            grep -h '^ALLOWED_ORIGINS=' '${DEPLOY_PATH}/current/.env'
+            echo '===== remove dead duckdns cert (non-fatal) ====='
+            certbot delete --cert-name amohealth.duckdns.org --non-interactive 2>&1 | tail -5 || echo 'duckdns cert delete skipped/failed (ok)'
+            echo '===== nginx config still valid? (no reload) ====='
+            nginx -t 2>&1 | tail -3 || echo 'WARN: nginx -t reported an issue'
+            echo '===== restart app to apply ALLOWED_ORIGINS ====='
+            pm2 restart amocrm-health-monitor --update-env
+            echo '===== remaining certs ====='
+            certbot certificates 2>&1 | grep -E 'Certificate Name|Domains' || true
+            echo '===== DONE ====='
+          "
+
+      - name: Verify still healthy on new domain
+        run: |
+          sleep 8
+          curl -s -m 12 -o /dev/null -w "/health -> %{http_code}\n" https://amohealth.nicklayecrm.ru/health || echo "health check failed"
