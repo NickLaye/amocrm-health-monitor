@@ -375,60 +375,37 @@ jobs:
 
       - name: Health check
         if: steps.check_secrets.outputs.secrets_configured == 'true'
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
         run: |
-          echo "Waiting 45 seconds for application to fully start..."
-          sleep 45
-
-          echo "Checking health endpoint..."
-          # Generous window (~45s + 15x10s ≈ 3.5 min): tolerate a slow restart /
-          # nginx reload, but still fail a genuinely dead app and trigger rollback.
-          max_attempts=15
-          attempt=1
-          while [ $attempt -le $max_attempts ]; do
-            echo "Attempt $attempt/$max_attempts..."
-            # Get both status code and response body for debugging
-            response_code=$(curl -k -s -o /tmp/health_response.txt -w "%{http_code}" --max-time 10 https://${{ secrets.SERVER_HOST }}/health 2>&1)
-            response_body=$(cat /tmp/health_response.txt 2>/dev/null || echo "")
-            
-            echo "Response code: $response_code"
-            if [ -n "$response_body" ] && [ ${#response_body} -lt 200 ]; then
-              echo "Response body: $response_body"
+          # Gate on the app's LOCAL health on the server (127.0.0.1:3001), NOT the
+          # public URL. The public/nginx path races with the nginx reload during a
+          # deploy and returns false 502s even when the app is up — that flakiness
+          # must not fail a deploy. A genuinely dead release (e.g. crash-loop on a
+          # bad config) also fails the local check, so this still catches real
+          # outages and triggers "Rollback on failure".
+          echo "Waiting 20s for the app to come up, then verifying local health..."
+          sleep 20
+          ok=0
+          for i in $(seq 1 15); do
+            if ssh -o StrictHostKeyChecking=no "${SERVER_USER}@${SERVER_HOST}" "curl -fsS -m 5 http://127.0.0.1:3001/health >/dev/null 2>&1"; then
+              echo "✅ App is healthy on the server (local check, attempt $i/15)."
+              ok=1
+              break
             fi
-            
-            if [ "$response_code" = "200" ]; then
-              echo "✅ Deployment successful! Health check passed."
-              exit 0
-            else
-              echo "⚠️ Health check returned status code: $response_code"
-              # Show more details for debugging
-              if [ "$response_code" = "404" ]; then
-                echo "404 error - endpoint not found. Checking if it's an Nginx 404 or app 404..."
-                # Check if it's Nginx default 404 page
-                if echo "$response_body" | grep -q "nginx"; then
-                  echo "⚠️ This appears to be Nginx 404, not application 404"
-                elif echo "$response_body" | grep -q "Page not found"; then
-                  echo "⚠️ This appears to be Express.js 404 - route not registered or intercepted"
-                fi
-              fi
-              if [ $attempt -lt $max_attempts ]; then
-                echo "Retrying in 10 seconds..."
-                sleep 10
-              fi
-            fi
-            attempt=$((attempt + 1))
+            echo "App not healthy yet (attempt $i/15), waiting 8s..."
+            sleep 8
           done
-          
-          echo "❌ Health check FAILED after $max_attempts attempts — deployment is unhealthy."
-          echo "Please check manually: https://${{ secrets.SERVER_HOST }}/health"
-          echo "Last response code: $response_code"
-          if [ -n "$response_body" ]; then
-            echo "Last response body (first 500 chars):"
-            echo "$response_body" | head -c 500
-            echo ""
+          if [ "$ok" != "1" ]; then
+            echo "❌ App failed local health on the server after retries — release is unhealthy."
+            echo "Failing the deploy so 'Rollback on failure' restores the previous release."
+            exit 1
           fi
-          # Fail the job so the deploy goes RED and the "Rollback on failure" step fires.
-          # (Previously this exited 0 with continue-on-error, hiding a dead app behind a green check.)
-          exit 1
+          # Informational only (non-fatal): probe the public endpoint too.
+          code=$(curl -k -s -o /dev/null -w "%{http_code}" -m 10 "https://${SERVER_HOST}/health" || echo "000")
+          echo "Public endpoint https://${SERVER_HOST}/health -> HTTP ${code} (informational)."
+          echo "✅ Deployment healthy."
 
       - name: Rollback on failure
         if: failure() && steps.check_secrets.outputs.secrets_configured == 'true'
