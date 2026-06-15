@@ -1,0 +1,47 @@
+name: Set persistent DB/tokens paths [temporary]
+
+on:
+  workflow_dispatch:
+
+jobs:
+  persist:
+    name: Add DB_PATH and TOKENS_DIR to server .env
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Configure persistent paths
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          ssh "${SERVER_USER}@${SERVER_HOST}" "
+            set -e
+            mkdir -p '${DEPLOY_PATH}/data'
+            for f in '${DEPLOY_PATH}/.env' '${DEPLOY_PATH}/current/.env'; do
+              [ -f \"\$f\" ] || continue
+              grep -vE '^(DB_PATH|TOKENS_DIR)=' \"\$f\" > \"\$f.tmp\" && mv \"\$f.tmp\" \"\$f\"
+              printf 'DB_PATH=%s/health_checks.db\n' '${DEPLOY_PATH}' >> \"\$f\"
+              printf 'TOKENS_DIR=%s/data\n' '${DEPLOY_PATH}' >> \"\$f\"
+            done
+            echo '--- resulting persistent paths in current/.env ---'
+            grep -E '^(DB_PATH|TOKENS_DIR)=' '${DEPLOY_PATH}/current/.env'
+            echo '--- data dir ---'
+            ls -ld '${DEPLOY_PATH}/data'
+            echo '--- restart app to apply persistent paths ---'
+            pm2 restart amocrm-health-monitor --update-env
+            sleep 12
+            echo '--- token file created in persistent dir? (means auth from env worked) ---'
+            ls -la '${DEPLOY_PATH}/data' 2>&1 || echo 'no data dir'
+            echo '--- db file at persistent path? ---'
+            ls -la '${DEPLOY_PATH}/health_checks.db' 2>&1 || echo 'no db yet'
+          "

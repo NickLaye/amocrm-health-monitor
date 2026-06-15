@@ -3,7 +3,9 @@ const path = require('path');
 const { createLogger } = require('./utils/logger');
 const { DEFAULT_CLIENT_ID, LATENCY_THRESHOLDS } = require('./config/constants');
 
-const DB_PATH = path.join(__dirname, '..', 'health_checks.db');
+// DB_PATH can point outside the deploy's `current/` dir so history survives
+// deployments (otherwise the DB is recreated empty on every release).
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'health_checks.db');
 const logger = createLogger('Database');
 
 // Enable query logging in development mode

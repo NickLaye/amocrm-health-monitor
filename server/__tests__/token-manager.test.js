@@ -418,6 +418,24 @@ describe('TokenManager', () => {
 
             await expect(manager.getAccessToken()).rejects.toThrow('No tokens available');
         });
+
+        test('should use a long-term env access token without a refresh token (no refresh attempt)', async () => {
+            if (fs.existsSync(testTokensFile)) fs.unlinkSync(testTokensFile);
+            axios.post.mockClear();
+            const payload = Buffer.from(JSON.stringify({ exp: 1861833600 })).toString('base64url');
+            const jwt = `eyJhbGciOiJIUzI1NiJ9.${payload}.signature`;
+            const manager = new TokenManager({
+                clientId: 'test-client',
+                tokensFile: testTokensFile,
+                tokens: { access_token: jwt, refresh_token: '' }
+            });
+
+            const token = await manager.getAccessToken();
+
+            expect(token).toBe(jwt);
+            expect(axios.post).not.toHaveBeenCalled();
+            expect(manager.currentTokens.expires_at).toBe(1861833600);
+        });
     });
 
     describe('initializeFromEnv', () => {

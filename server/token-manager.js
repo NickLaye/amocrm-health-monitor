@@ -17,7 +17,7 @@ class TokenManager {
       refresh_token: process.env.AMOCRM_REFRESH_TOKEN,
     };
 
-    const dataDir = path.join(__dirname, '../data');
+    const dataDir = options.dataDir || process.env.TOKENS_DIR || path.join(__dirname, '../data');
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
@@ -123,7 +123,7 @@ class TokenManager {
       this.loadTokens();
     }
 
-    if (!this.currentTokens && this.initialTokens?.refresh_token) {
+    if (!this.currentTokens && (this.initialTokens?.access_token || this.initialTokens?.refresh_token)) {
       const initialized = await this.initializeFromEnv();
       if (!initialized) {
         this.logger.warn('Failed to initialize tokens from environment');
@@ -176,28 +176,50 @@ class TokenManager {
     return this.currentTokens.access_token;
   }
 
+  /**
+   * Decode a JWT access token's `exp` (unix seconds). Returns null if not a JWT
+   * or no exp claim. Used to honour a long-term token's real expiry.
+   * @param {string} token
+   * @returns {number|null}
+   */
+  _decodeJwtExp(token) {
+    try {
+      const parts = String(token).split('.');
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+      return typeof payload.exp === 'number' ? payload.exp : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   async initializeFromEnv() {
     const accessToken = this.initialTokens?.access_token;
     const refreshToken = this.initialTokens?.refresh_token;
 
-    if (!refreshToken) {
-      this.logger.warn('Refresh token not provided in environment');
+    if (!accessToken && !refreshToken) {
+      this.logger.warn('Neither access nor refresh token provided in environment');
       return false;
     }
 
-    // If we have both tokens, use them directly
-    if (accessToken && refreshToken) {
-    const tokens = {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      expires_at: Math.floor(Date.now() / 1000) + 3600, // Default to 1 hour
-      token_type: 'Bearer',
-      expires_in: 3600,
-    };
+    // If we have an access token, use it directly. Supports the long-term
+    // access-token mode (no refresh token): expires_at is taken from the token's
+    // own JWT `exp` claim, so a long-lived token is not treated as expiring in 1h
+    // (which would otherwise trigger a refresh that fails without a refresh token).
+    if (accessToken) {
+      const now = Math.floor(Date.now() / 1000);
+      const expiresAt = this._decodeJwtExp(accessToken) || (now + 3600);
+      const tokens = {
+        access_token: accessToken,
+        refresh_token: refreshToken || '',
+        expires_at: expiresAt,
+        token_type: 'Bearer',
+        expires_in: Math.max(0, expiresAt - now),
+      };
 
-    this.saveTokens(tokens);
-      this.logger.info('Tokens initialized from environment variables');
-    return true;
+      this.saveTokens(tokens);
+      this.logger.info('Tokens initialized from environment (access token)');
+      return true;
     }
 
     // If we only have refresh_token, use it to get a new access_token
