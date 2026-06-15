@@ -19,7 +19,7 @@ jobs:
     name: Build Application
     runs-on: ubuntu-latest
     env:
-      VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://amohealth.duckdns.org/api' }}
+      VITE_API_URL: https://amohealth.nicklayecrm.ru/api
 
     steps:
       - name: Checkout code
