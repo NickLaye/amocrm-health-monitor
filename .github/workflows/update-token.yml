@@ -1,0 +1,44 @@
+name: Update amoCRM access token on server [temporary]
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Replace AMOCRM_ACCESS_TOKEN and reset token file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$SERVER_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Apply token and restart
+        env:
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          AMOCRM_ACCESS_TOKEN: ${{ secrets.AMOCRM_ACCESS_TOKEN }}
+        run: |
+          TOKEN_B64=$(printf '%s' "$AMOCRM_ACCESS_TOKEN" | base64 -w0)
+          echo "::add-mask::$TOKEN_B64"
+          ssh "${SERVER_USER}@${SERVER_HOST}" "
+            set -e
+            TOK=\$(printf '%s' '$TOKEN_B64' | base64 -d)
+            for f in '${DEPLOY_PATH}/.env' '${DEPLOY_PATH}/current/.env'; do
+              [ -f \"\$f\" ] || continue
+              grep -v '^AMOCRM_ACCESS_TOKEN=' \"\$f\" > \"\$f.tmp\" && mv \"\$f.tmp\" \"\$f\"
+              printf 'AMOCRM_ACCESS_TOKEN=%s\n' \"\$TOK\" >> \"\$f\"
+            done
+            echo 'removing stale token files...'
+            rm -f '${DEPLOY_PATH}/data/cc2bceaf-c9d2-4132-8dd0-6625ded9f5f8.tokens.json' '${DEPLOY_PATH}/current/data/cc2bceaf-c9d2-4132-8dd0-6625ded9f5f8.tokens.json'
+            pm2 restart amocrm-health-monitor --update-env
+            sleep 12
+            echo '--- new token file (access_token redacted) ---'
+            grep -v '\"access_token\"' '${DEPLOY_PATH}/data/cc2bceaf-c9d2-4132-8dd0-6625ded9f5f8.tokens.json' 2>&1 || echo 'no token file (auth may have failed)'
+          "
