@@ -44,8 +44,8 @@ jobs:
             ls -la '${DEPLOY_PATH}/data' 2>&1 || echo 'no data dir'
             echo '--- db file at persistent path? ---'
             ls -la '${DEPLOY_PATH}/health_checks.db' 2>&1 || echo 'no db yet'
-            echo '--- token file expires_at (should be 1861833600) ---'
-            grep -o '\"expires_at\":[0-9]*' '${DEPLOY_PATH}/data/cc2bceaf-c9d2-4132-8dd0-6625ded9f5f8.tokens.json' || echo 'expires_at not found'
+            echo '--- token file (access_token line redacted) ---'
+            grep -v '\"access_token\"' '${DEPLOY_PATH}/data/cc2bceaf-c9d2-4132-8dd0-6625ded9f5f8.tokens.json'
             echo '--- node version on server ---'
             node -v
           "
